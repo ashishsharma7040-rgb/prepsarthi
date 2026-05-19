@@ -1,0 +1,102 @@
+// firebase/firestore.rules
+//
+// ✅ PRODUCTION FIX (v6): users/{uid} rule split into read / create+update / delete.
+//    - read:          owner can read their own profile
+//    - create,update: owner allowed ONLY IF no premium/entitlement fields are written
+//                     (isPremium, premiumExpiry, subscriptionStatus, trialUsed)
+//    - delete:        always blocked — prevents accidental data loss
+//    Previously used allow read, write: ... which fails on delete operations
+//    (request.resource does not exist for deletes → runtime error).
+//
+// ✅ PRODUCTION FIX (v6): trialUsed also blocked in user doc writes.
+//    trialUsed must only be set by the Cloud Function via Admin SDK in
+//    subscriptions/{uid}. Client reads it back from there via syncEntitlement.
+//
+// All other security from v5 retained:
+//  ✅ subscriptions/{uid}: client read-only (Cloud Function admin-only writes)
+//  ✅ purchaseVerificationRequests: create-only (uid must match auth.uid)
+//  ✅ Deny-all fallback at the bottom
+//
+// Deploy: firebase deploy --only firestore:rules
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ────────────────────────────────────────────────────
+    function isAuth()      { return request.auth != null; }
+    function isOwner(uid)  { return request.auth.uid == uid; }
+
+    // Fields the client is NEVER allowed to write on user documents.
+    // These are set exclusively by the Cloud Function via Admin SDK.
+    function hasPremiumFields() {
+      return request.resource.data.keys().hasAny([
+        'isPremium',
+        'premiumExpiry',
+        'subscriptionStatus',
+        'trialUsed'
+      ]);
+    }
+
+    // ── subscriptions/{uid} ─────────────────────────────────────────────────
+    // ✅ Client can ONLY READ. All writes go through Cloud Function (Admin SDK)
+    //    which bypasses these rules. This is the authoritative entitlement source.
+    match /subscriptions/{userId} {
+      allow read:  if isAuth() && isOwner(userId);
+      // Block ALL client writes — Admin SDK bypasses rules automatically.
+      allow write: if false;
+    }
+
+    // ── purchaseVerificationRequests/{requestId} ────────────────────────────
+    // ✅ User can CREATE one request per purchase to trigger verification.
+    //    Cloud Function reads it, verifies with Google Play, writes to
+    //    subscriptions/{uid}, then updates the request with the result.
+    //    User CANNOT read, update, or delete their own requests (prevents tampering).
+    match /purchaseVerificationRequests/{requestId} {
+      allow create: if isAuth()
+          && request.resource.data.uid          == request.auth.uid
+          && request.resource.data.status       == 'pending_verification'
+          && request.resource.data.keys().hasAll([
+               'uid', 'purchaseToken', 'productId', 'platform', 'packageName'
+             ])
+          // ✅ Cap field count to prevent data injection attacks
+          && request.resource.data.keys().size() <= 10;
+
+      allow read, update, delete: if false;
+    }
+
+    // ── users/{uid} — student profile ───────────────────────────────────────
+    // ✅ PRODUCTION FIX (v6): Split into granular rules.
+    //
+    //  allow read:          Owner reads their own profile anytime.
+    //  allow create,update: Owner may write ONLY IF premium/trial fields absent.
+    //                       Prevents client from self-granting premium access.
+    //  allow delete:        Always blocked. Profile deletion must go through a
+    //                       Cloud Function that also purges subscriptions/{uid}.
+    //
+    // NOTE: request.resource is undefined for delete operations, so combining
+    //       write + !request.resource.data.keys()... would throw a runtime error
+    //       on any delete attempt. Splitting prevents that bug.
+    match /users/{userId} {
+      allow read: if isAuth() && isOwner(userId);
+
+      allow create, update: if isAuth()
+          && isOwner(userId)
+          && !hasPremiumFields();   // ← client can NEVER set premium / trial fields
+
+      allow delete: if false;       // ← profile deletes via Cloud Function only
+    }
+
+    // ── App config (public read for remote config / announcements) ──────────
+    match /app_config/{doc} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // ── Deny everything else ────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,309 @@
+{
+  "quotes": [
+    {
+      "text": "The expert in anything was once a beginner.",
+      "author": "Helen Hayes",
+      "category": "motivation"
+    },
+    {
+      "text": "Success is the sum of small efforts, repeated day in and day out.",
+      "author": "Robert Collier",
+      "category": "consistency"
+    },
+    {
+      "text": "Don't watch the clock; do what it does. Keep going.",
+      "author": "Sam Levenson",
+      "category": "perseverance"
+    },
+    {
+      "text": "It does not matter how slowly you go as long as you do not stop.",
+      "author": "Confucius",
+      "category": "perseverance"
+    },
+    {
+      "text": "The future belongs to those who believe in the beauty of their dreams.",
+      "author": "Eleanor Roosevelt",
+      "category": "vision"
+    },
+    {
+      "text": "Hard work beats talent when talent doesn't work hard.",
+      "author": "Tim Notke",
+      "category": "hardwork"
+    },
+    {
+      "text": "Believe you can and you're halfway there.",
+      "author": "Theodore Roosevelt",
+      "category": "mindset"
+    },
+    {
+      "text": "Every student who ever cracked JEE once sat where you are right now.",
+      "author": "PrepSarthi",
+      "category": "jee"
+    },
+    {
+      "text": "Rank 1 was not born with a different brain. They just studied smarter and longer.",
+      "author": "PrepSarthi",
+      "category": "jee"
+    },
+    {
+      "text": "One concept mastered today is one less doubt in the exam hall.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "The pain of studying is far less than the pain of regret.",
+      "author": "Anonymous",
+      "category": "motivation"
+    },
+    {
+      "text": "Your rank is being decided right now, in this very moment.",
+      "author": "PrepSarthi",
+      "category": "urgency"
+    },
+    {
+      "text": "Physics, Chemistry, Math — conquer them one chapter at a time.",
+      "author": "PrepSarthi",
+      "category": "jee"
+    },
+    {
+      "text": "A doctor saves lives. Your NEET preparation is where that journey begins.",
+      "author": "PrepSarthi",
+      "category": "neet"
+    },
+    {
+      "text": "Do not pray for an easy life, pray for the strength to endure a difficult one.",
+      "author": "Bruce Lee",
+      "category": "mindset"
+    },
+    {
+      "text": "Revision is not repetition — it is reinforcement.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "The difference between ordinary and extraordinary is that little extra.",
+      "author": "Jimmy Johnson",
+      "category": "excellence"
+    },
+    {
+      "text": "PYQs are the language of the exam. Speak it fluently.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "Your consistency today is your confidence tomorrow.",
+      "author": "PrepSarthi",
+      "category": "consistency"
+    },
+    {
+      "text": "Education is the most powerful weapon you can use to change the world.",
+      "author": "Nelson Mandela",
+      "category": "vision"
+    },
+    {
+      "text": "Champions are not made in gyms. They are made from something deep inside.",
+      "author": "Muhammad Ali",
+      "category": "motivation"
+    },
+    {
+      "text": "Start where you are. Use what you have. Do what you can.",
+      "author": "Arthur Ashe",
+      "category": "beginners"
+    },
+    {
+      "text": "The secret of getting ahead is getting started.",
+      "author": "Mark Twain",
+      "category": "action"
+    },
+    {
+      "text": "Electrostatics, Organic Chemistry, Calculus — the triumvirate of JEE. Master them and the rest follows.",
+      "author": "PrepSarthi",
+      "category": "jee"
+    },
+    {
+      "text": "Human Physiology, Genetics, Ecology — these three chapters carry your NEET score. Give them the respect they deserve.",
+      "author": "PrepSarthi",
+      "category": "neet"
+    },
+    {
+      "text": "You don't need to be perfect. You need to be consistent.",
+      "author": "PrepSarthi",
+      "category": "consistency"
+    },
+    {
+      "text": "What you do today can improve all your tomorrows.",
+      "author": "Ralph Marston",
+      "category": "daily"
+    },
+    {
+      "text": "Push yourself because no one else is going to do it for you.",
+      "author": "Anonymous",
+      "category": "self-discipline"
+    },
+    {
+      "text": "Great things never come from comfort zones.",
+      "author": "Anonymous",
+      "category": "growth"
+    },
+    {
+      "text": "Dream it. Believe it. Build it.",
+      "author": "Anonymous",
+      "category": "vision"
+    },
+    {
+      "text": "Your brain is like a muscle — the more you exercise it, the stronger it gets.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "Solving one PYQ correctly is worth more than reading ten chapters carelessly.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "The IITians of today were the aspirants of yesterday. The only difference is they never quit.",
+      "author": "PrepSarthi",
+      "category": "jee"
+    },
+    {
+      "text": "Difficult roads often lead to beautiful destinations.",
+      "author": "Zig Ziglar",
+      "category": "perseverance"
+    },
+    {
+      "text": "You are not behind. You are exactly where your preparation has brought you. Now change that.",
+      "author": "PrepSarthi",
+      "category": "motivation"
+    },
+    {
+      "text": "Success doesn't come from what you do occasionally. It comes from what you do consistently.",
+      "author": "Marie Forleo",
+      "category": "consistency"
+    },
+    {
+      "text": "Don't limit your challenges. Challenge your limits.",
+      "author": "Anonymous",
+      "category": "mindset"
+    },
+    {
+      "text": "Every hour you study today is an investment that compounds into your rank.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "It always seems impossible until it's done.",
+      "author": "Nelson Mandela",
+      "category": "motivation"
+    },
+    {
+      "text": "The road to IIT is paved with consistent revision and smart practice.",
+      "author": "PrepSarthi",
+      "category": "jee"
+    },
+    {
+      "text": "Whoever is careless with the truth in small matters cannot be trusted with important ones.",
+      "author": "Albert Einstein",
+      "category": "excellence"
+    },
+    {
+      "text": "Strive not to be a success, but rather to be of value.",
+      "author": "Albert Einstein",
+      "category": "vision"
+    },
+    {
+      "text": "The secret to success is to start before you are ready.",
+      "author": "Marie Forleo",
+      "category": "action"
+    },
+    {
+      "text": "When you feel like quitting, think about why you started.",
+      "author": "Anonymous",
+      "category": "perseverance"
+    },
+    {
+      "text": "Morning study sessions have a 40% better retention rate. Use your peak hours wisely.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "You are one study session away from a breakthrough.",
+      "author": "PrepSarthi",
+      "category": "motivation"
+    },
+    {
+      "text": "Don't compare your chapter 1 to someone else's chapter 20.",
+      "author": "Anonymous",
+      "category": "mindset"
+    },
+    {
+      "text": "Spaced revision is the single most powerful memory tool ever discovered.",
+      "author": "PrepSarthi",
+      "category": "study"
+    },
+    {
+      "text": "The best investment you can make is in yourself.",
+      "author": "Warren Buffett",
+      "category": "vision"
+    },
+    {
+      "text": "Fall seven times, stand up eight.",
+      "author": "Japanese Proverb",
+      "category": "resilience"
+    },
+    {
+      "text": "Today's preparation determines tomorrow's achievement.",
+      "author": "Anonymous",
+      "category": "daily"
+    },
+    {
+      "text": "If you are not willing to risk the unusual, you will have to settle for the ordinary.",
+      "author": "Jim Rohn",
+      "category": "growth"
+    },
+    {
+      "text": "The more that you read, the more things you will know.",
+      "author": "Dr. Seuss",
+      "category": "study"
+    },
+    {
+      "text": "Sometimes the questions are complicated and the answers are simple.",
+      "author": "Dr. Seuss",
+      "category": "mindset"
+    },
+    {
+      "text": "You have brains in your head. You have feet in your shoes. You can steer yourself any direction you choose.",
+      "author": "Dr. Seuss",
+      "category": "motivation"
+    },
+    {
+      "text": "Stop doubting yourself, work hard and make it happen.",
+      "author": "Anonymous",
+      "category": "self-belief"
+    },
+    {
+      "text": "Your only limit is your mind.",
+      "author": "Anonymous",
+      "category": "mindset"
+    },
+    {
+      "text": "Hardships often prepare ordinary people for an extraordinary destiny.",
+      "author": "C.S. Lewis",
+      "category": "resilience"
+    },
+    {
+      "text": "Be so good they can't ignore you.",
+      "author": "Steve Martin",
+      "category": "excellence"
+    },
+    {
+      "text": "Keep your eyes on the stars, and your feet on the ground.",
+      "author": "Theodore Roosevelt",
+      "category": "vision"
+    },
+    {
+      "text": "Do something today that your future self will thank you for.",
+      "author": "Sean Patrick Flanery",
+      "category": "daily"
+    }
+  ]
+}

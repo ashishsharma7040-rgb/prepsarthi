@@ -1,0 +1,134 @@
+// android/app/build.gradle
+//
+// ✅ PRODUCTION FIX (v6): Release build now FAILS with a clear error if
+//    android/key.properties is missing. Previously fell back silently to
+//    debug signing — which produces an APK/AAB that cannot be uploaded to
+//    Google Play and would leak a debug key into production.
+//
+//    For local development (debug builds) this file still works without
+//    key.properties — the check only fires inside buildTypes.release.
+//
+//    To create key.properties:
+//      1. Generate a keystore:
+//         keytool -genkey -v -keystore prepsarthi_release.jks \
+//           -alias prepsarthi -keyalg RSA -keysize 4096 -validity 10000
+//      2. Create android/key.properties:
+//         storeFile=../prepsarthi_release.jks   (path relative to android/app/)
+//         storePassword=YOUR_STORE_PASSWORD
+//         keyAlias=prepsarthi
+//         keyPassword=YOUR_KEY_PASSWORD
+//      3. Add key.properties and *.jks to .gitignore — NEVER commit secrets.
+
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader -> localProperties.load(reader) }
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
+def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0.0'
+
+// Load keystore properties if file exists (only required for release builds).
+def keystoreProperties     = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace   "com.prepsarthi.app"
+    compileSdk  35
+    ndkVersion  "27.0.12077973"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions { jvmTarget = '17' }
+
+    sourceSets { main.java.srcDirs += 'src/main/kotlin' }
+
+    defaultConfig {
+        applicationId   "com.prepsarthi.app"
+        minSdk          24      // Android 7.0 — covers 99%+ of active devices
+        targetSdk       35      // Required for Play Store submissions from Aug 2025+
+        versionCode     flutterVersionCode.toInteger()
+        versionName     flutterVersionName
+        multiDexEnabled true
+    }
+
+    signingConfigs {
+        debug {
+            // Uses default debug keystore automatically — no key.properties needed.
+        }
+        release {
+            // Populated below in buildTypes.release after the existence check.
+            // Gradle evaluates signingConfigs eagerly, so we leave this empty here
+            // and assign from buildTypes.release using the configure() call pattern.
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix   "-debug"
+            debuggable          true
+            signingConfig       signingConfigs.debug
+        }
+
+        release {
+            // ✅ PRODUCTION FIX (v6): Fail the release build explicitly when
+            //    key.properties is absent. Never silently use debug signing
+            //    for a production artifact — debug-signed AABs are rejected
+            //    by Google Play and cannot be published.
+            if (!keystorePropertiesFile.exists()) {
+                throw new GradleException(
+                    "\n\n" +
+                    "❌  RELEASE BUILD FAILED: android/key.properties not found.\n\n" +
+                    "    Create it with:\n" +
+                    "      storeFile=../prepsarthi_release.jks\n" +
+                    "      storePassword=YOUR_STORE_PASSWORD\n" +
+                    "      keyAlias=prepsarthi\n" +
+                    "      keyPassword=YOUR_KEY_PASSWORD\n\n" +
+                    "    Generate the keystore with:\n" +
+                    "      keytool -genkey -v -keystore prepsarthi_release.jks \\\n" +
+                    "        -alias prepsarthi -keyalg RSA -keysize 4096 -validity 10000\n\n" +
+                    "    ⚠️  Add key.properties and *.jks to .gitignore — NEVER commit secrets.\n" +
+                    "    ⚠️  For debug builds, this error does NOT appear.\n\n"
+                )
+            }
+
+            // Configure release signingConfig from the validated key.properties.
+            android.signingConfigs.release.keyAlias       = keystoreProperties['keyAlias']
+            android.signingConfigs.release.keyPassword    = keystoreProperties['keyPassword']
+            android.signingConfigs.release.storeFile      = keystoreProperties['storeFile']
+                ? file(keystoreProperties['storeFile']) : null
+            android.signingConfigs.release.storePassword  = keystoreProperties['storePassword']
+
+            signingConfig    signingConfigs.release
+            minifyEnabled    true
+            shrinkResources  true
+            proguardFiles    getDefaultProguardFile('proguard-android-optimize.txt'),
+                             'proguard-rules.pro'
+        }
+    }
+}
+
+flutter { source '../..' }
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-auth'
+}
