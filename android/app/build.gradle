@@ -23,7 +23,13 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
+}
+
+def hasGoogleServicesJson = file("google-services.json").exists()
+if (hasGoogleServicesJson) {
+    apply plugin: "com.google.gms.google-services"
+} else {
+    logger.lifecycle("google-services.json not found; skipping Google Services plugin for this build.")
 }
 
 def localProperties = new Properties()
@@ -34,6 +40,9 @@ if (localPropertiesFile.exists()) {
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
 def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0.0'
+def isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase().contains("release")
+}
 
 // Load keystore properties if file exists (only required for release builds).
 def keystoreProperties     = new Properties()
@@ -86,11 +95,20 @@ android {
         }
 
         release {
-            // ✅ PRODUCTION FIX (v6): Fail the release build explicitly when
-            //    key.properties is absent. Never silently use debug signing
-            //    for a production artifact — debug-signed AABs are rejected
-            //    by Google Play and cannot be published.
-            if (!keystorePropertiesFile.exists()) {
+            // Only block actual release builds when signing credentials are missing.
+            if (keystorePropertiesFile.exists()) {
+                android.signingConfigs.release.keyAlias       = keystoreProperties['keyAlias']
+                android.signingConfigs.release.keyPassword    = keystoreProperties['keyPassword']
+                android.signingConfigs.release.storeFile      = keystoreProperties['storeFile']
+                    ? file(keystoreProperties['storeFile']) : null
+                android.signingConfigs.release.storePassword  = keystoreProperties['storePassword']
+
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+
+            if (!keystorePropertiesFile.exists() && isReleaseTaskRequested) {
                 throw new GradleException(
                     "\n\n" +
                     "❌  RELEASE BUILD FAILED: android/key.properties not found.\n\n" +
@@ -103,18 +121,9 @@ android {
                     "      keytool -genkey -v -keystore prepsarthi_release.jks \\\n" +
                     "        -alias prepsarthi -keyalg RSA -keysize 4096 -validity 10000\n\n" +
                     "    ⚠️  Add key.properties and *.jks to .gitignore — NEVER commit secrets.\n" +
-                    "    ⚠️  For debug builds, this error does NOT appear.\n\n"
+                    "    ⚠️  Debug builds and Gradle task discovery still work without this file.\n\n"
                 )
             }
-
-            // Configure release signingConfig from the validated key.properties.
-            android.signingConfigs.release.keyAlias       = keystoreProperties['keyAlias']
-            android.signingConfigs.release.keyPassword    = keystoreProperties['keyPassword']
-            android.signingConfigs.release.storeFile      = keystoreProperties['storeFile']
-                ? file(keystoreProperties['storeFile']) : null
-            android.signingConfigs.release.storePassword  = keystoreProperties['storePassword']
-
-            signingConfig    signingConfigs.release
             minifyEnabled    true
             shrinkResources  true
             proguardFiles    getDefaultProguardFile('proguard-android-optimize.txt'),
