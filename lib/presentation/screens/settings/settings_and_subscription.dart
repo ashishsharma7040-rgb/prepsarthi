@@ -182,13 +182,16 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Clear All Data?'),
         content: const Text('This permanently deletes all logs, plans and progress. Cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(_, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(backgroundColor: LightColors.error),
             child: const Text('Clear'),
           ),
@@ -211,7 +214,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _confirmReload(BuildContext context) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Reload Syllabus?'),
         content: const Text(
           'This updates chapter metadata (weightage, hours, difficulty) '
@@ -220,8 +223,14 @@ class SettingsScreen extends ConsumerWidget {
           'preserved.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(_, true), child: const Text('Reload')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Reload'),
+          ),
         ],
       ),
     );
@@ -276,7 +285,7 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayName = user?.displayName?.trim() ?? '';
+    final displayName = user?.displayName.trim() ?? '';
     final name = displayName.isNotEmpty ? displayName : 'Aspirant';
     final email = user?.email?.trim();
     final accent = isPremium ? LightColors.primary : LightColors.secondary;

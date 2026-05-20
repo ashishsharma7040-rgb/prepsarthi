@@ -417,7 +417,7 @@ class _AddSheetState extends State<_AddSheet> {
           )),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _examType,
+            initialValue: _examType,
             items: ['JEE Main', 'JEE Advanced', 'NEET', 'Mock', 'Other']
                 .map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
             onChanged: (v) => setState(() { _examType = v!; _subs = _buildSubs(_examType); }),

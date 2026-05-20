@@ -331,7 +331,7 @@ class _MistakeNotebookScreenState
                 const SizedBox(height: 8),
                 if (chapters.isNotEmpty)
                   DropdownButtonFormField<String>(
-                    value: chapterName,
+                    initialValue: chapterName,
                     decoration: const InputDecoration(
                         isDense: true, border: OutlineInputBorder()),
                     items: chapters
