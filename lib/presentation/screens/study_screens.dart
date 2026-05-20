@@ -12,7 +12,6 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/local/isar/schemas/chapter_schema.dart';
-import '../../data/local/isar/schemas/revision_schedule_schema.dart';
 import '../providers/all_providers.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 
@@ -654,7 +653,6 @@ class RevisionScheduleScreen extends ConsumerWidget {
     final today = DateTime(now.year, now.month, now.day);
 
     final updated = revision.scheduledDates.map((d) {
-      final dDay = DateTime(d.year, d.month, d.day);
       if (!d.isBefore(today) && !revision.completedDates.any(
           (c) => c.year == d.year && c.month == d.month && c.day == d.day)) {
         return d.add(const Duration(days: 2));
@@ -836,7 +834,6 @@ class _AddRevisionSheetState extends ConsumerState<_AddRevisionSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = widget.isDark ? DarkColors.primary : LightColors.primary;
     final planState = ref.read(planProvider);
     final subjects = planState.chapters.map((c) => c.subjectName).toSet().toList()..sort();
     final chapters = _selectedSubject == null

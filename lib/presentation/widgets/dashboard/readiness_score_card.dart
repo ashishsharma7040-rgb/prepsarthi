@@ -8,7 +8,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../domain/usecases/readiness_score.dart';
 // ✅ Import canonical provider — do NOT redeclare it here
 import '../../providers/analytics_providers.dart';
 
