@@ -51,5 +51,19 @@ workflows:
       - name: Build debug APK
         script: flutter build apk --debug
 
+      - name: Print APK signing certificate
+        script: |
+          APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+          echo "APK path: $APK_PATH"
+          ls -lh "$APK_PATH"
+
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          echo "Using apksigner: $APKSIGNER"
+
+          "$APKSIGNER" verify --print-certs "$APK_PATH" | tee apk-signing-certificate.txt
+
+          echo "========== COPY SHA-1 AND SHA-256 FROM ABOVE =========="
+
     artifacts:
       - build/app/outputs/flutter-apk/app-debug.apk
+      - apk-signing-certificate.txt
