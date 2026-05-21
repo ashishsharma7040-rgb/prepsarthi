@@ -15,8 +15,26 @@ workflows:
       - name: Show project files
         script: ls -la
 
+      - name: Install Firebase Android config
+        script: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON_B64. Add the base64-encoded android/app/google-services.json in Codemagic environment variables."
+            exit 1
+          fi
+          mkdir -p android/app
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
+          if ! grep -q '"package_name"[[:space:]]*:[[:space:]]*"com.prepsarthi.app"' android/app/google-services.json; then
+            echo "google-services.json does not match package com.prepsarthi.app"
+            exit 1
+          fi
+
       - name: Get dependencies
         script: flutter pub get
+
+      - name: Android signing report
+        script: |
+          cd android
+          ./gradlew signingReport
 
       - name: Generate Isar files
         script: dart run build_runner build --delete-conflicting-outputs
