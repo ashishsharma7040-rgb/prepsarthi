@@ -5,6 +5,8 @@ workflows:
     instance_type: linux_x2
 
     environment:
+      groups:
+        - firebase_credentials
       flutter: stable
       java: 17
 
@@ -18,7 +20,7 @@ workflows:
       - name: Install Firebase Android config
         script: |
           if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
-            echo "Missing GOOGLE_SERVICES_JSON_B64. Add the base64-encoded android/app/google-services.json in Codemagic environment variables."
+            echo "Missing GOOGLE_SERVICES_JSON_B64. Add the base64-encoded android/app/google-services.json to the imported firebase_credentials group in Codemagic."
             exit 1
           fi
           mkdir -p android/app

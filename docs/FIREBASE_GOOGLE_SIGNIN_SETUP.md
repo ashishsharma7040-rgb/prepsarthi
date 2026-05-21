@@ -10,8 +10,8 @@ If Google account selection opens and then sign-in fails, the most common cause 
 
 In Firebase Console:
 
-1. Open your project
-2. Go to `Project settings`
+1. Open your project.
+2. Go to `Project settings`.
 3. Under `Your apps`, verify there is an Android app with package:
    `com.prepsarthi.app`
 
@@ -24,9 +24,9 @@ Do not use:
 
 In Firebase Console:
 
-1. Go to `Authentication`
-2. Open `Sign-in method`
-3. Enable `Google`
+1. Go to `Authentication`.
+2. Open `Sign-in method`.
+3. Enable `Google`.
 
 ## 3. Add SHA-1 and SHA-256 fingerprints
 
@@ -34,11 +34,11 @@ You must add the fingerprints for the key that signed the APK you installed.
 
 Required fingerprints usually include:
 
-1. Local debug key SHA-1 and SHA-256
-2. Codemagic debug signing SHA-1 and SHA-256
-3. Release signing SHA-1 and SHA-256
+1. Local debug key SHA-1 and SHA-256.
+2. Codemagic debug signing SHA-1 and SHA-256.
+3. Release signing SHA-1 and SHA-256.
 
-This repo now includes a Codemagic signing report step so you can copy the exact fingerprints from build logs.
+This repo includes a Codemagic signing report step so you can copy the exact fingerprints from build logs.
 
 ## 4. Download a fresh google-services.json
 
@@ -66,21 +66,39 @@ Do not use:
 - `lib/google-services.json`
 - `google-services (1).json`
 
-## 6. Codemagic secure setup
+## 6. Local build setup
+
+If you build the APK locally on your own machine, put the real file at:
+
+`android/app/google-services.json`
+
+This repo already ignores that file in `.gitignore`, so it stays local and does not get committed accidentally.
+
+## 7. Codemagic secure setup
 
 Do not commit the real Firebase config to a public repo.
 
 Recommended Codemagic setup:
 
-1. Base64-encode the real `google-services.json`
-2. Store it in Codemagic as an environment variable:
+1. Base64-encode the real `google-services.json`.
+2. Create a variable group in Codemagic named:
+   `firebase_credentials`
+3. Store the base64 output in that group as an environment variable:
    `GOOGLE_SERVICES_JSON_B64`
-3. During the build, Codemagic decodes it into:
+4. During the build, Codemagic decodes it into:
    `android/app/google-services.json`
 
-This repo’s `codemagic.yaml` now expects that variable and fails early with a clear message if it is missing.
+This repo's `codemagic.yaml` now imports the `firebase_credentials` group and fails early with a clear message if `GOOGLE_SERVICES_JSON_B64` is missing.
 
-## 7. Codemagic build logs
+On Windows, you can generate the base64 string with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/firebase/encode_google_services.ps1 -InputPath "C:\path\to\google-services.json" -OutputPath "google-services.base64.txt"
+```
+
+Then copy the contents of `google-services.base64.txt` into the Codemagic variable.
+
+## 8. Codemagic build logs
 
 The build now runs:
 
@@ -91,22 +109,22 @@ cd android
 
 Use the output from `Variant: debug` and `Variant: release` to copy SHA-1 and SHA-256 into Firebase.
 
-## 8. Rebuild after updating Firebase
+## 9. Rebuild after updating Firebase
 
 After adding the correct `google-services.json` and SHA fingerprints:
 
-1. Trigger a fresh Codemagic build
-2. Install the new APK
-3. Test Google Sign-In again
+1. Trigger a fresh Codemagic build.
+2. Install the new APK.
+3. Test Google Sign-In again.
 
-## 9. What success looks like
+## 10. What success looks like
 
 Correct production flow:
 
-1. User taps `Continue with Google`
-2. Google account picker opens
-3. Selected account returns to app
-4. Firebase Auth signs in successfully
-5. Local user profile is created or updated
-6. Subscription entitlement is synced from `subscriptions/{uid}`
-7. User is routed to onboarding or dashboard
+1. User taps `Continue with Google`.
+2. Google account picker opens.
+3. Selected account returns to app.
+4. Firebase Auth signs in successfully.
+5. Local user profile is created or updated.
+6. Subscription entitlement is synced from `subscriptions/{uid}`.
+7. User is routed to onboarding or dashboard.
