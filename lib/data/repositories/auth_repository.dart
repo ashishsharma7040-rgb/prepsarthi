@@ -10,9 +10,11 @@
 //    that match what the Cloud Function writes: status, expiryDate, basePlanId.
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
 import '../local/isar/isar_service.dart';
 import '../local/isar/schemas/schemas.dart';
@@ -24,6 +26,14 @@ class AuthRepository {
 
   static Future<AuthResult> signInWithGoogle() async {
     try {
+      if (Firebase.apps.isEmpty) {
+        return AuthResult.error(
+          'Firebase is not configured for this build. Add the real '
+          'android/app/google-services.json for package com.prepsarthi.app '
+          'and rebuild.',
+        );
+      }
+
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return AuthResult.cancelled();
 
@@ -42,8 +52,13 @@ class AuthRepository {
 
       return AuthResult.success(localUser);
     } on FirebaseAuthException catch (e) {
+      debugPrint('[AuthRepo] FirebaseAuthException ${e.code}: ${e.message}');
       return AuthResult.error(_mapError(e.code));
+    } on PlatformException catch (e) {
+      debugPrint('[AuthRepo] PlatformException ${e.code}: ${e.message}');
+      return AuthResult.error(_mapPlatformError(e));
     } catch (e) {
+      debugPrint('[AuthRepo] Google sign-in error: $e');
       return AuthResult.error('Sign-in failed. Please try again.');
     }
   }
@@ -134,13 +149,47 @@ class AuthRepository {
         return 'Network error. Please check your connection.';
       case 'sign_in_canceled':
         return 'Sign-in was cancelled.';
+      case 'operation-not-allowed':
+        return 'Google Sign-In is not enabled in Firebase Authentication yet.';
       case 'invalid-credential':
-        return 'Invalid credentials. Please try again.';
+      case 'invalid-cert-hash':
+      case 'app-not-authorized':
+        return 'Google Sign-In is not fully configured for this Android build. '
+            'Check package name, SHA-1/SHA-256, and Firebase Auth Google provider.';
       case 'account-exists-with-different-credential':
         return 'Account exists with a different sign-in method.';
       default:
         return 'Sign-in failed ($code). Please try again.';
     }
+  }
+
+  static String _mapPlatformError(PlatformException e) {
+    final message = '${e.message ?? ''} ${e.details ?? ''}'.toLowerCase();
+    final code = e.code.toLowerCase();
+
+    if (code.contains('sign_in_canceled') || message.contains('12501')) {
+      return 'Sign-in was cancelled.';
+    }
+
+    if (message.contains('network') || code.contains('network')) {
+      return 'Network error. Please check your connection.';
+    }
+
+    if (message.contains('apiexception: 10') ||
+        message.contains('developer_error') ||
+        message.contains('12500') ||
+        code.contains('sign_in_failed')) {
+      return 'Google Sign-In is not fully configured for this Android build. '
+          'Check google-services.json, package name com.prepsarthi.app, '
+          'Firebase Auth Google provider, and SHA-1/SHA-256 for the signing key.';
+    }
+
+    if (message.contains('firebaseapp') || message.contains('default firebaseapp')) {
+      return 'Firebase is not configured for this build. Add the real '
+          'android/app/google-services.json and rebuild.';
+    }
+
+    return 'Sign-in failed. Please try again.';
   }
 }
 

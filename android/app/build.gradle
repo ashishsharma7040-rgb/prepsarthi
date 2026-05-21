@@ -51,6 +51,14 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def configureSigningFromProperties = { signingConfig ->
+    signingConfig.keyAlias      = keystoreProperties['keyAlias']
+    signingConfig.keyPassword   = keystoreProperties['keyPassword']
+    signingConfig.storeFile     = keystoreProperties['storeFile']
+        ? file(keystoreProperties['storeFile']) : null
+    signingConfig.storePassword = keystoreProperties['storePassword']
+}
+
 android {
     namespace   "com.prepsarthi.app"
     compileSdk  36
@@ -88,21 +96,24 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix ".debug"
             versionNameSuffix   "-debug"
             debuggable          true
-            signingConfig       signingConfigs.debug
+            // Keep the debug APK on the real Firebase package name
+            // (com.prepsarthi.app) so Google Sign-In uses the same Android app
+            // registration as release. When a real signing key is available,
+            // reuse it here so Codemagic debug/release builds share the same SHA.
+            if (keystorePropertiesFile.exists()) {
+                configureSigningFromProperties(android.signingConfigs.release)
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
         }
 
         release {
             // Only block actual release builds when signing credentials are missing.
             if (keystorePropertiesFile.exists()) {
-                android.signingConfigs.release.keyAlias       = keystoreProperties['keyAlias']
-                android.signingConfigs.release.keyPassword    = keystoreProperties['keyPassword']
-                android.signingConfigs.release.storeFile      = keystoreProperties['storeFile']
-                    ? file(keystoreProperties['storeFile']) : null
-                android.signingConfigs.release.storePassword  = keystoreProperties['storePassword']
-
+                configureSigningFromProperties(android.signingConfigs.release)
                 signingConfig signingConfigs.release
             } else {
                 signingConfig signingConfigs.debug
