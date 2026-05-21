@@ -44,15 +44,16 @@ class SettingsState {
     int? pomodoroBreak,
     int? pomodoroCycles,
     bool? soundEnabled,
-  }) => SettingsState(
-    themeMode: themeMode ?? this.themeMode,
-    notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
-    notificationTime: notificationTime ?? this.notificationTime,
-    pomodoroWork: pomodoroWork ?? this.pomodoroWork,
-    pomodoroBreak: pomodoroBreak ?? this.pomodoroBreak,
-    pomodoroCycles: pomodoroCycles ?? this.pomodoroCycles,
-    soundEnabled: soundEnabled ?? this.soundEnabled,
-  );
+  }) =>
+      SettingsState(
+        themeMode: themeMode ?? this.themeMode,
+        notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+        notificationTime: notificationTime ?? this.notificationTime,
+        pomodoroWork: pomodoroWork ?? this.pomodoroWork,
+        pomodoroBreak: pomodoroBreak ?? this.pomodoroBreak,
+        pomodoroCycles: pomodoroCycles ?? this.pomodoroCycles,
+        soundEnabled: soundEnabled ?? this.soundEnabled,
+      );
 }
 
 class SettingsNotifier extends Notifier<SettingsState> {
@@ -131,8 +132,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> _save() async {
     final db = IsarService.db;
     await db.writeTxn(() async {
-      var s = await db.userSettingsSchemas.where().findFirst()
-          ?? UserSettingsSchema();
+      var s = await db.userSettingsSchemas.where().findFirst() ??
+          UserSettingsSchema();
       s.themeMode = state.themeMode;
       s.notificationsEnabled = state.notificationsEnabled;
       s.notificationTime = state.notificationTime;
@@ -180,9 +181,20 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> _loadLocalUser() async {
-    final db = IsarService.db;
-    final user = await db.userSchemas.where().findFirst();
-    state = AuthState(user: user, isLoading: false);
+    if (!IsarService.isReady) {
+      debugPrint('[Auth] Isar not ready, skipping local user load');
+      state = const AuthState(isLoading: false);
+      return;
+    }
+
+    try {
+      final db = IsarService.db;
+      final user = await db.userSchemas.where().findFirst();
+      state = AuthState(user: user, isLoading: false);
+    } catch (error) {
+      debugPrint('[Auth] local user load failed: $error');
+      state = const AuthState(isLoading: false);
+    }
   }
 
   Future<void> saveUser(UserSchema user) async {
@@ -279,12 +291,13 @@ class OnboardingState {
     String? examYear,
     double? dailyHours,
     List<DateTime>? blackoutDates,
-  }) => OnboardingState(
-    targetExam: targetExam ?? this.targetExam,
-    examYear: examYear ?? this.examYear,
-    dailyHours: dailyHours ?? this.dailyHours,
-    blackoutDates: blackoutDates ?? this.blackoutDates,
-  );
+  }) =>
+      OnboardingState(
+        targetExam: targetExam ?? this.targetExam,
+        examYear: examYear ?? this.examYear,
+        dailyHours: dailyHours ?? this.dailyHours,
+        blackoutDates: blackoutDates ?? this.blackoutDates,
+      );
 }
 
 class OnboardingNotifier extends Notifier<OnboardingState> {
@@ -328,13 +341,14 @@ class PlanState {
     List<PlanEntrySchema>? weekEntries,
     bool? isLoading,
     String? error,
-  }) => PlanState(
-    chapters: chapters ?? this.chapters,
-    todayEntries: todayEntries ?? this.todayEntries,
-    weekEntries: weekEntries ?? this.weekEntries,
-    isLoading: isLoading ?? this.isLoading,
-    error: error,
-  );
+  }) =>
+      PlanState(
+        chapters: chapters ?? this.chapters,
+        todayEntries: todayEntries ?? this.todayEntries,
+        weekEntries: weekEntries ?? this.weekEntries,
+        isLoading: isLoading ?? this.isLoading,
+        error: error,
+      );
 }
 
 class PlanNotifier extends Notifier<PlanState> {
@@ -398,8 +412,8 @@ class PlanNotifier extends Notifier<PlanState> {
       );
       // Mark plan generated timestamp
       final db = IsarService.db;
-      final settings = await db.userSettingsSchemas.where().findFirst()
-          ?? UserSettingsSchema();
+      final settings = await db.userSettingsSchemas.where().findFirst() ??
+          UserSettingsSchema();
       settings.lastPlanGeneratedAt = DateTime.now();
       await db.writeTxn(() async => db.userSettingsSchemas.put(settings));
       await _load();
@@ -423,10 +437,8 @@ class PlanNotifier extends Notifier<PlanState> {
   // Mark a chapter status and trigger revision scheduling if learned
   Future<void> markChapterStatus(String chapterName, String status) async {
     final db = IsarService.db;
-    final chapter = await db.chapterSchemas
-        .filter()
-        .nameEqualTo(chapterName)
-        .findFirst();
+    final chapter =
+        await db.chapterSchemas.filter().nameEqualTo(chapterName).findFirst();
     if (chapter == null) return;
     chapter.status = status;
     chapter.lastStudiedDate = DateTime.now();
@@ -448,8 +460,10 @@ class PlanNotifier extends Notifier<PlanState> {
 
   String _syllabusSource(String exam) {
     switch (exam) {
-      case 'neet': return 'neet_ug';
-      default: return 'jee_main';
+      case 'neet':
+        return 'neet_ug';
+      default:
+        return 'jee_main';
     }
   }
 
@@ -505,10 +519,8 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
     await db.writeTxn(() async => db.studyLogSchemas.put(log));
 
     // Update chapter hours
-    final chapter = await db.chapterSchemas
-        .filter()
-        .nameEqualTo(chapterName)
-        .findFirst();
+    final chapter =
+        await db.chapterSchemas.filter().nameEqualTo(chapterName).findFirst();
     if (chapter != null) {
       chapter.hoursSpent += hours;
       chapter.lastStudiedDate = DateTime.now();
@@ -523,14 +535,18 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
       final db2 = IsarService.db;
       final user = await db2.userSchemas.where().findFirst();
       if (user != null) {
-        final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        final today = DateTime(
+            DateTime.now().year, DateTime.now().month, DateTime.now().day);
         final last = user.lastStudyDate;
-        if (last == null || DateTime(last.year, last.month, last.day) != today) {
-          final lastDay = last != null ? DateTime(last.year, last.month, last.day) : null;
+        if (last == null ||
+            DateTime(last.year, last.month, last.day) != today) {
+          final lastDay =
+              last != null ? DateTime(last.year, last.month, last.day) : null;
           final diff = lastDay != null ? today.difference(lastDay).inDays : 0;
           user.currentStreak = (diff == 1) ? user.currentStreak + 1 : 1;
           user.lastStudyDate = today;
-          if (user.currentStreak > user.longestStreak) user.longestStreak = user.currentStreak;
+          if (user.currentStreak > user.longestStreak)
+            user.longestStreak = user.currentStreak;
           await db2.writeTxn(() async => db2.userSchemas.put(user));
           if ([3, 7, 14, 30, 60, 100].contains(user.currentStreak)) {
             await NotificationHelper.showStreakNotification(user.currentStreak);
@@ -578,7 +594,8 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
   Map<String, double> subjectHoursLast30Days() {
     final result = <String, double>{};
     for (final log in state) {
-      result[log.subjectName] = (result[log.subjectName] ?? 0) + log.hoursStudied;
+      result[log.subjectName] =
+          (result[log.subjectName] ?? 0) + log.hoursStudied;
     }
     return result;
   }
@@ -587,10 +604,8 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
     final db = IsarService.db;
     final totalLogs = await db.studyLogSchemas.count();
     final totalHours = state.fold(0.0, (s, l) => s + l.hoursStudied);
-    final pyqCount = await db.studyLogSchemas
-        .filter()
-        .activityTagEqualTo('pyq')
-        .count();
+    final pyqCount =
+        await db.studyLogSchemas.filter().activityTagEqualTo('pyq').count();
 
     Future<void> unlock(String badgeId) async {
       final badge = await db.achievementSchemas
@@ -632,7 +647,7 @@ final studyLogProvider =
 // ═══════════════════════════════════════════════════════════════════════════
 
 class DashboardSummary {
-  final double overallProgress;       // 0.0–1.0 weighted
+  final double overallProgress; // 0.0–1.0 weighted
   final Map<String, double> subjectProgress; // subject → 0.0–1.0
   final double avgDailyHours;
   final int streak;
@@ -675,7 +690,9 @@ final dashboardSummaryProvider = Provider<DashboardSummary>((ref) {
         : 0.0;
     totalWeightedProgress += p * c.weightage;
     totalWeight += c.weightage;
-    if (c.status == 'learned' || c.status == 'revised' || c.status == 'tested') {
+    if (c.status == 'learned' ||
+        c.status == 'revised' ||
+        c.status == 'tested') {
       completedCount++;
     }
   }
@@ -710,9 +727,8 @@ final dashboardSummaryProvider = Provider<DashboardSummary>((ref) {
   }
 
   final examDate = authState.user?.examDate;
-  final daysToExam = examDate != null
-      ? examDate.difference(now).inDays.clamp(0, 9999)
-      : 0;
+  final daysToExam =
+      examDate != null ? examDate.difference(now).inDays.clamp(0, 9999) : 0;
 
   return DashboardSummary(
     overallProgress: overall,
@@ -741,10 +757,8 @@ final revisionProvider =
 final upcomingRevisionsProvider =
     FutureProvider<Map<String, List<RevisionScheduleSchema>>>((ref) async {
   final db = IsarService.db;
-  final all = await db.revisionScheduleSchemas
-      .filter()
-      .activeEqualTo(true)
-      .findAll();
+  final all =
+      await db.revisionScheduleSchemas.filter().activeEqualTo(true).findAll();
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -761,8 +775,9 @@ final upcomingRevisionsProvider =
   for (final r in all) {
     if (r.isFullyRevised) continue;
     final pending = r.scheduledDates
-        .where((d) => !r.completedDates.any((c) =>
-            c.year == d.year && c.month == d.month && c.day == d.day) &&
+        .where((d) =>
+            !r.completedDates.any((c) =>
+                c.year == d.year && c.month == d.month && c.day == d.day) &&
             !d.isBefore(today))
         .toList()
       ..sort();
@@ -853,7 +868,8 @@ class SubscriptionNotifier extends Notifier<SubscriptionState> {
     required String planType,
     required DateTime expiry,
     bool isInTrial = false,
-  }) => activatePremiumFromServer(planType: planType, expiry: expiry);
+  }) =>
+      activatePremiumFromServer(planType: planType, expiry: expiry);
 
   Future<void> deactivatePremium() async {
     final db = IsarService.db;
@@ -877,7 +893,8 @@ final subscriptionProvider =
 // ACHIEVEMENTS PROVIDER
 // ═══════════════════════════════════════════════════════════════════════════
 
-final achievementsProvider = FutureProvider<List<AchievementSchema>>((ref) async {
+final achievementsProvider =
+    FutureProvider<List<AchievementSchema>>((ref) async {
   // Re-run when study logs change
   ref.watch(studyLogProvider);
   final db = IsarService.db;
@@ -907,7 +924,8 @@ extension PlanNotifierAI on PlanNotifier {
       final dateOffset = day['date_offset'] as int? ?? 0;
       final date = today.add(Duration(days: dateOffset));
       if (date.isAfter(weekEnd)) continue;
-      final dayEntries = (day['entries'] as List? ?? []).cast<Map<String, dynamic>>();
+      final dayEntries =
+          (day['entries'] as List? ?? []).cast<Map<String, dynamic>>();
       for (int i = 0; i < dayEntries.length; i++) {
         final e = dayEntries[i];
         newEntries.add(PlanEntrySchema()

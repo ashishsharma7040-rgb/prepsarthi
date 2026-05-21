@@ -15,6 +15,8 @@ export 'schemas/schemas.dart';
 class IsarService {
   static Isar? _instance;
 
+  static bool get isReady => _instance != null && _instance!.isOpen;
+
   static Future<Isar> getInstance() async {
     if (_instance != null && _instance!.isOpen) return _instance!;
     final dir = await getApplicationDocumentsDirectory();
@@ -35,8 +37,10 @@ class IsarService {
   }
 
   static Isar get db {
-    assert(_instance != null && _instance!.isOpen,
-        'IsarService not initialised. Call getInstance() first in main().');
+    assert(
+      _instance != null && _instance!.isOpen,
+      'IsarService not initialised. Call getInstance() first.',
+    );
     return _instance!;
   }
 
