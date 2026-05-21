@@ -147,7 +147,13 @@ class StartupController extends AsyncNotifier<StartupState> {
       unawaited(
         FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true),
       );
-      debugPrint('[Startup] Firebase ready');
+      final options = Firebase.app().options;
+      debugPrint(
+        '[Startup] Firebase ready '
+        'projectId=${options.projectId} '
+        'appIdPresent=${options.appId.isNotEmpty} '
+        'apiKeyPresent=${options.apiKey.isNotEmpty}',
+      );
     } catch (error, stack) {
       debugPrint('[Startup] Firebase failed, continuing offline: $error');
       reportZoneError(error, stack);

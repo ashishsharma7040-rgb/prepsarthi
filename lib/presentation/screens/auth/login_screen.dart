@@ -1,11 +1,14 @@
 // lib/presentation/screens/auth/login_screen.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/firebase/firebase_diagnostics.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../providers/all_providers.dart';
 import '../../../router/app_router.dart';
@@ -57,6 +60,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _copyFirebaseDiagnostics() async {
+    final diagnostics = await FirebaseRuntimeDiagnostics.collect();
+    final summary = diagnostics.toClipboardText(
+      lastAuthErrorCode: AuthRepository.lastAuthErrorCode,
+      lastAuthErrorMessage: AuthRepository.lastAuthErrorMessage,
+      lastAuthErrorDetails: AuthRepository.lastAuthErrorDetails,
+    );
+    await Clipboard.setData(ClipboardData(text: summary));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Firebase diagnostics copied')),
+    );
   }
 
   @override
@@ -230,12 +247,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Firebase is not configured for this build. Add android/app/google-services.json for package com.prepsarthi.app and rebuild.',
+                              FirebaseRuntimeDiagnostics
+                                  .firebaseNotInitializedMessage,
                               style: theme.textTheme.bodySmall
                                   ?.copyWith(color: LightColors.error),
                             ),
                           ),
                         ],
+                      ),
+                    ).animate().fadeIn(),
+
+                  if (kDebugMode)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _copyFirebaseDiagnostics,
+                        icon: const Icon(Icons.copy_rounded, size: 16),
+                        label: const Text('Copy Firebase diagnostics'),
                       ),
                     ).animate().fadeIn(),
 
