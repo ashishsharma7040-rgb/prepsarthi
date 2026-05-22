@@ -50,7 +50,8 @@ workflows:
           storeFile=$CM_KEYSTORE_PATH
           EOF
           echo "[OK] android/key.properties written:"
-          cat android/key.properties
+          echo "  storeFile=$CM_KEYSTORE_PATH"
+          echo "  keyAlias=$CM_KEY_ALIAS"
           ls -lh "$CM_KEYSTORE_PATH"
 
       - name: Get dependencies
