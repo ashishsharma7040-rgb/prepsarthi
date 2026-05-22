@@ -16,8 +16,8 @@ class MainActivity : FlutterActivity() {
             "prepsarthi/firebase_diagnostics"
         ).setMethodCallHandler { call, result ->
             if (call.method == "getFirebaseDiagnostics") {
-                val sha1: String?
-                val sha256: String?
+                var sha1: String? = null
+                var sha256: String? = null
                 var shaError: String? = null
 
                 try {
