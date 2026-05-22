@@ -7,6 +7,8 @@ workflows:
     environment:
       groups:
         - firebase_credentials
+      android_signing:
+        - prepsarthi_release
       flutter: stable
       java: 17
 
@@ -33,6 +35,15 @@ workflows:
       - name: Verify Firebase Android config
         script: |
           python3 scripts/firebase/verify_google_services.py android/app/google-services.json
+
+      - name: Set up Android signing
+        script: |
+          cat > android/key.properties <<EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=$CM_KEYSTORE_PATH
+          EOF
 
       - name: Get dependencies
         script: flutter pub get
