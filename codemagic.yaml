@@ -38,12 +38,20 @@ workflows:
 
       - name: Set up Android signing
         script: |
+          if [ -z "$CM_KEYSTORE_PATH" ] || [ -z "$CM_KEYSTORE_PASSWORD" ] || [ -z "$CM_KEY_ALIAS" ] || [ -z "$CM_KEY_PASSWORD" ]; then
+            echo "Android signing variables are missing. Check the Codemagic android_signing reference name."
+            echo "Expected keystore reference: prepsarthi_release"
+            exit 1
+          fi
           cat > android/key.properties <<EOF
           storePassword=$CM_KEYSTORE_PASSWORD
           keyPassword=$CM_KEY_PASSWORD
           keyAlias=$CM_KEY_ALIAS
           storeFile=$CM_KEYSTORE_PATH
           EOF
+          echo "[OK] android/key.properties written:"
+          cat android/key.properties
+          ls -lh "$CM_KEYSTORE_PATH"
 
       - name: Get dependencies
         script: flutter pub get
