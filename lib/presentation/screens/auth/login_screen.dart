@@ -55,8 +55,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } else if (result.cancelled) {
       setState(() => _loading = false);
     } else {
+      String errorText = result.error ?? 'Sign-in failed. Please try again.';
+      if (errorText.contains('signing certificate') ||
+          errorText.contains('ApiException') ||
+          errorText.contains('DEVELOPER_ERROR')) {
+        final diagnostics = await FirebaseRuntimeDiagnostics.collect();
+        if (!mounted) return;
+        if (diagnostics.apkSha1 != null) {
+          errorText = 'SHA mismatch (ApiException:10).\n'
+              'Add these to Firebase Console for Android app com.prepsarthi.app:\n'
+              'SHA-1: ${diagnostics.apkSha1}\n'
+              'SHA-256: ${diagnostics.apkSha256 ?? "tap Copy Firebase diagnostics"}\n'
+              'Then download fresh google-services.json, update Codemagic, and rebuild.';
+        }
+      }
       setState(() {
-        _error = result.error;
+        _error = errorText;
         _loading = false;
       });
     }
