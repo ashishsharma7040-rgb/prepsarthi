@@ -42,11 +42,24 @@ class PYQNotifier extends Notifier<List<PYQPaper>> {
     state = state
         .map((p) => p.id == paperId ? p.copyWith(isPracticed: true) : p)
         .toList();
+    final paper = state.firstWhere((p) => p.id == paperId);
+    double hours;
+    switch (paper.exam) {
+      case 'NEET UG':
+        hours = 3.5;
+        break;
+      case 'JEE Advanced':
+        hours = 3.0;
+        break;
+      case 'JEE Main':
+      default:
+        hours = 3.0;
+    }
     // Also log as a PYQ session
     ref.read(studyLogProvider.notifier).logSession(
       chapterName: 'PYQ Session',
-      subjectName: state.firstWhere((p) => p.id == paperId).subject,
-      hours: 2.0,
+      subjectName: paper.subject,
+      hours: hours,
       activityTag: 'pyq',
     );
   }
@@ -118,21 +131,71 @@ class PastPapersScreen extends ConsumerStatefulWidget {
 class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  List<String> _tabLabels = const [];
   String _selectedFilter = 'All';
 
-  final _exams = ['All', 'JEE Main', 'JEE Advanced', 'NEET UG'];
+  List<String> _examsForTarget(String? targetExam) {
+    switch (targetExam) {
+      case 'neet':
+        return ['All', 'NEET UG'];
+      case 'jee_advanced':
+        return ['All', 'JEE Main', 'JEE Advanced'];
+      case 'both':
+        return ['All', 'JEE Main', 'NEET UG'];
+      case 'class12_boards':
+        return ['All', 'JEE Main'];
+      case 'jee_main':
+      default:
+        return ['All', 'JEE Main'];
+    }
+  }
+
+  bool _sameTabs(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  void _handleTabChange() {
+    if (_tabController.index >= _tabLabels.length) return;
+    final nextFilter = _tabLabels[_tabController.index];
+    if (_selectedFilter != nextFilter) {
+      setState(() => _selectedFilter = nextFilter);
+    }
+  }
+
+  void _configureTabs(List<String> exams) {
+    final previousFilter = _selectedFilter;
+    final initialIndex = exams.indexOf(previousFilter) >= 0
+        ? exams.indexOf(previousFilter)
+        : 0;
+
+    if (_tabLabels.isNotEmpty) {
+      _tabController.removeListener(_handleTabChange);
+      _tabController.dispose();
+    }
+
+    _tabLabels = List<String>.from(exams);
+    _selectedFilter = _tabLabels[initialIndex];
+    _tabController = TabController(
+      length: _tabLabels.length,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
+    _tabController.addListener(_handleTabChange);
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _exams.length, vsync: this);
-    _tabController.addListener(() {
-      setState(() => _selectedFilter = _exams[_tabController.index]);
-    });
+    _configureTabs(_examsForTarget(ref.read(authProvider).user?.targetExam));
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -143,10 +206,19 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
     final isDark = theme.brightness == Brightness.dark;
     final accent = isDark ? DarkColors.primary : LightColors.primary;
     final papers = ref.watch(pyqProvider);
+    final auth = ref.watch(authProvider);
+    final exams = _examsForTarget(auth.user?.targetExam);
+
+    if (!_sameTabs(_tabLabels, exams)) {
+      _configureTabs(exams);
+    }
+
+    final relevantPapers =
+        papers.where((p) => exams.contains(p.exam)).toList();
 
     final filtered = _selectedFilter == 'All'
-        ? papers
-        : papers.where((p) => p.exam == _selectedFilter).toList();
+        ? relevantPapers
+        : relevantPapers.where((p) => p.exam == _selectedFilter).toList();
 
     // Group by year descending
     final grouped = <int, List<PYQPaper>>{};
@@ -155,8 +227,23 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
     }
     final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    final practicedCount = papers.where((p) => p.isPracticed).length;
-    final totalCount = papers.length;
+    final practicedCount = relevantPapers.where((p) => p.isPracticed).length;
+    final totalCount = relevantPapers.length;
+    final completionPct =
+        totalCount == 0 ? 0 : (practicedCount / totalCount * 100).round();
+    final practicedHours = relevantPapers
+        .where((p) => p.isPracticed)
+        .fold<double>(0, (sum, paper) {
+      switch (paper.exam) {
+        case 'NEET UG':
+          return sum + 3.5;
+        case 'JEE Advanced':
+          return sum + 3.0;
+        case 'JEE Main':
+        default:
+          return sum + 3.0;
+      }
+    });
 
     return Scaffold(
       body: SafeArea(
@@ -190,8 +277,7 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
                       children: [
                         _StatChip('📝', '$practicedCount/$totalCount', 'Papers Done', accent),
                         const SizedBox(width: 16),
-                        _StatChip('🎯', '${(practicedCount / totalCount * 100).round()}%',
-                            'Completion', accent),
+                        _StatChip('🎯', '$completionPct%', 'Completion', accent),
                         const Spacer(),
                         if (practicedCount > 0)
                           Container(
@@ -200,7 +286,7 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
                               color: LightColors.learned.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text('${(practicedCount * 2.0).toStringAsFixed(0)}h practiced',
+                            child: Text('${practicedHours.toStringAsFixed(0)}h practiced',
                                 style: theme.textTheme.labelSmall
                                     ?.copyWith(color: LightColors.learned)),
                           ),
@@ -233,7 +319,7 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
                     ?.copyWith(fontWeight: FontWeight.w700),
                 unselectedLabelStyle: theme.textTheme.labelMedium,
                 dividerColor: Colors.transparent,
-                tabs: _exams.map((e) => Tab(text: e)).toList(),
+                tabs: _tabLabels.map((e) => Tab(text: e)).toList(),
               ),
             ),
 
@@ -457,4 +543,3 @@ class _StatChip extends StatelessWidget {
     );
   }
 }
-

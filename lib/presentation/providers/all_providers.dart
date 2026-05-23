@@ -281,9 +281,19 @@ class OnboardingState {
     if (examYear == null) return null;
     final year = int.tryParse(examYear!);
     if (year == null) return null;
-    // JEE Main: April 15; NEET: May 5 (approximate)
-    final isNeet = targetExam == 'neet';
-    return DateTime(year, isNeet ? 5 : 4, isNeet ? 5 : 15);
+    switch (targetExam) {
+      case 'neet':
+        return DateTime(year, 5, 4);
+      case 'jee_advanced':
+        return DateTime(year, 5, 25);
+      case 'class12_boards':
+        return DateTime(year, 3, 1);
+      case 'both':
+        return DateTime(year, 5, 4);
+      case 'jee_main':
+      default:
+        return DateTime(year, 4, 13);
+    }
   }
 
   OnboardingState copyWith({
@@ -462,6 +472,10 @@ class PlanNotifier extends Notifier<PlanState> {
     switch (exam) {
       case 'neet':
         return 'neet_ug';
+      case 'jee_advanced':
+      case 'both':
+      case 'class12_boards':
+      case 'jee_main':
       default:
         return 'jee_main';
     }

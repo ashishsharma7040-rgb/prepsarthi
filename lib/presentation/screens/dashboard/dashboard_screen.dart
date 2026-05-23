@@ -36,6 +36,7 @@ class DashboardScreen extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final summary = ref.watch(dashboardSummaryProvider);
     final auth = ref.watch(authProvider);
+    final settings = ref.watch(settingsProvider);
     final quoteAsync = ref.watch(_dailyQuoteProvider);
     final readiness = ref.watch(readinessScoreProvider);
     final backlog = ref.watch(backlogRecoveryProvider);
@@ -48,11 +49,35 @@ class DashboardScreen extends ConsumerWidget {
         .where((l) => l.timestamp.isAfter(todayStart))
         .fold<double>(0, (s, l) => s + l.hoursStudied);
     final targetHours = auth.user?.dailyStudyHours ?? 5.0;
+    final currentThemeMode = settings.themeMode;
+
+    IconData themeIcon;
+    String nextThemeMode;
+    if (currentThemeMode == 'dark') {
+      themeIcon = Icons.light_mode_rounded;
+      nextThemeMode = 'light';
+    } else if (currentThemeMode == 'light') {
+      themeIcon = Icons.dark_mode_rounded;
+      nextThemeMode = 'dark';
+    } else {
+      themeIcon =
+          isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded;
+      nextThemeMode = isDark ? 'light' : 'dark';
+    }
 
     return Scaffold(
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(planProvider);
+          ref.invalidate(studyLogProvider);
+          ref.invalidate(dashboardSummaryProvider);
+          ref.invalidate(readinessScoreProvider);
+          ref.invalidate(backlogRecoveryProvider);
+        },
+        color: isDark ? DarkColors.primary : LightColors.primary,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
           // ── App Bar ──────────────────────────────────────────────────────
           SliverAppBar(
             expandedHeight: 170,
@@ -69,6 +94,13 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
             actions: [
+              IconButton(
+                icon: Icon(themeIcon),
+                tooltip: 'Toggle theme',
+                onPressed: () => ref
+                    .read(settingsProvider.notifier)
+                    .setThemeMode(nextThemeMode),
+              ),
               IconButton(
                 icon: const Icon(Icons.flash_on_rounded),
                 tooltip: "Today's Mission",
@@ -217,7 +249,8 @@ class DashboardScreen extends ConsumerWidget {
                 ]),
               ),
             ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push(AppRoutes.log),

@@ -85,11 +85,11 @@ class _TargetSelectorScreenState extends ConsumerState<TargetSelectorScreen> {
   String? _selected;
 
   final _targets = [
-    _Target('jee_main', '📐', 'JEE Main', 'Engineering entrance – NTA', 'Physics, Chemistry, Mathematics'),
-    _Target('jee_advanced', '🏆', 'JEE Advanced', 'IIT entrance – prestigious', 'Physics, Chemistry, Mathematics'),
-    _Target('neet', '🩺', 'NEET UG', 'Medical entrance – NMC', 'Physics, Chemistry, Biology'),
-    _Target('both', '🎯', 'JEE + NEET', 'Attempting both exams', 'Physics, Chemistry, Maths + Bio'),
-    _Target('class12_boards', '📚', 'Class 12 + Boards', 'Board exam focus first', 'All NCERT subjects'),
+    _Target('jee_main', '📐', 'JEE Main', 'Engineering entrance – NTA', 'Physics, Chemistry, Mathematics', true),
+    _Target('jee_advanced', '🏆', 'JEE Advanced', 'IIT entrance – prestigious', 'Physics, Chemistry, Mathematics', false),
+    _Target('neet', '🩺', 'NEET UG', 'Medical entrance – NMC', 'Physics, Chemistry, Biology', true),
+    _Target('both', '🎯', 'JEE + NEET', 'Attempting both exams', 'Physics, Chemistry, Maths + Bio', false),
+    _Target('class12_boards', '📚', 'Class 12 + Boards', 'Board exam focus first', 'All NCERT subjects', false),
   ];
 
   @override
@@ -130,7 +130,9 @@ class _TargetSelectorScreenState extends ConsumerState<TargetSelectorScreen> {
                       target: t,
                       selected: _selected == t.id,
                       isDark: isDark,
-                      onTap: () => setState(() => _selected = t.id),
+                      onTap: t.isSupported
+                          ? () => setState(() => _selected = t.id)
+                          : null,
                     ).animate(delay: (i * 70).ms).fadeIn().slideX(begin: 0.08);
                   },
                 ),
@@ -154,59 +156,94 @@ class _TargetSelectorScreenState extends ConsumerState<TargetSelectorScreen> {
 
 class _Target {
   final String id, emoji, title, subtitle, subjects;
-  const _Target(this.id, this.emoji, this.title, this.subtitle, this.subjects);
+  final bool isSupported;
+  const _Target(
+    this.id,
+    this.emoji,
+    this.title,
+    this.subtitle,
+    this.subjects,
+    this.isSupported,
+  );
 }
 
 class _TargetCard extends StatelessWidget {
   final _Target target;
   final bool selected, isDark;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const _TargetCard({required this.target, required this.selected, required this.isDark, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = isDark ? DarkColors.primary : LightColors.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(0.1) : (isDark ? DarkColors.surfaceCard : LightColors.surface),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? accent : (isDark ? DarkColors.outline : LightColors.outline), width: selected ? 2 : 0.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 50, height: 50,
-              decoration: BoxDecoration(color: accent.withOpacity(0.12), borderRadius: BorderRadius.circular(13)),
-              child: Center(child: Text(target.emoji, style: const TextStyle(fontSize: 24))),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(target.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  Text(target.subtitle, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 3),
-                  Text(target.subjects, style: theme.textTheme.labelSmall?.copyWith(color: accent)),
-                ],
+    final isEnabled = target.isSupported;
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.55,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected ? accent.withOpacity(0.1) : (isDark ? DarkColors.surfaceCard : LightColors.surface),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? accent : (isDark ? DarkColors.outline : LightColors.outline), width: selected ? 2 : 0.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50, height: 50,
+                decoration: BoxDecoration(color: accent.withOpacity(0.12), borderRadius: BorderRadius.circular(13)),
+                child: Center(child: Text(target.emoji, style: const TextStyle(fontSize: 24))),
               ),
-            ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 22, height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected ? accent : Colors.transparent,
-                border: Border.all(color: selected ? accent : (isDark ? DarkColors.outline : LightColors.outline), width: 2),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(target.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        if (!isEnabled) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF9800).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFFF9800).withOpacity(0.4)),
+                            ),
+                            child: const Text(
+                              'Coming Soon',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFFF9800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(target.subtitle, style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 3),
+                    Text(target.subjects, style: theme.textTheme.labelSmall?.copyWith(color: accent)),
+                  ],
+                ),
               ),
-              child: selected ? const Icon(Icons.check, size: 13, color: Colors.white) : null,
-            ),
-          ],
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 22, height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? accent : Colors.transparent,
+                  border: Border.all(color: selected ? accent : (isDark ? DarkColors.outline : LightColors.outline), width: 2),
+                ),
+                child: selected ? const Icon(Icons.check, size: 13, color: Colors.white) : null,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -224,15 +261,50 @@ class ExamYearScreen extends ConsumerStatefulWidget {
 
 class _ExamYearScreenState extends ConsumerState<ExamYearScreen> {
   String? _selected;
-  final _years = ['2025', '2026', '2027', '2028', '2029', '2030'];
+  List<String> get _years {
+    final now = DateTime.now().year;
+    return [now.toString(), (now + 1).toString(), (now + 2).toString()];
+  }
 
   String _daysLeft(String year) {
     final ob = ref.read(onboardingProvider);
-    final isNeet = ob.targetExam == 'neet';
-    final examDate = DateTime(int.parse(year), isNeet ? 5 : 4, isNeet ? 5 : 15);
+    final y = int.parse(year);
+    late final DateTime examDate;
+    switch (ob.targetExam) {
+      case 'neet':
+        examDate = DateTime(y, 5, 4);
+        break;
+      case 'jee_advanced':
+        examDate = DateTime(y, 5, 25);
+        break;
+      case 'class12_boards':
+        examDate = DateTime(y, 3, 1);
+        break;
+      case 'both':
+        examDate = DateTime(y, 5, 4);
+        break;
+      case 'jee_main':
+      default:
+        examDate = DateTime(y, 4, 13);
+    }
     final diff = examDate.difference(DateTime.now()).inDays;
     if (diff <= 0) return 'Past';
-    return '$diff days left';
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[examDate.month]} ${examDate.day} • $diff days';
   }
 
   @override

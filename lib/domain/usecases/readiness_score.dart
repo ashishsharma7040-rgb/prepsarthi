@@ -87,11 +87,29 @@ class ReadinessScore {
 // analytics_providers.dart should expose this via a Riverpod FutureProvider
 // rather than duplicating formulas.
 class ReadinessCalculator {
+  static String _syllabusSourceForTarget(String? targetExam) {
+    switch (targetExam) {
+      case 'neet':
+        return 'neet_ug';
+      case 'jee_advanced':
+      case 'both':
+      case 'class12_boards':
+      case 'jee_main':
+      default:
+        return 'jee_main';
+    }
+  }
+
   static Future<ReadinessScore> calculate() async {
     final db = IsarService.db;
+    final user = await db.userSchemas.where().findFirst();
+    final userSource = _syllabusSourceForTarget(user?.targetExam);
 
     // Raw data
-    final chapters  = await db.chapterSchemas.where().findAll();
+    final chapters  = await db.chapterSchemas
+        .filter()
+        .syllabusSourceEqualTo(userSource)
+        .findAll();
     final revisions = await db.revisionScheduleSchemas
         .filter().activeEqualTo(true).findAll();
 
