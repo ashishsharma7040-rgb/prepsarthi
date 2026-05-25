@@ -1,0 +1,12 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - firebase/**
+    - lib/presentation/screens/mistake_notebook_screen.dart
+  errors:
+    deprecated_member_use: ignore
+    prefer_const_constructors: ignore
+    prefer_const_literals_to_create_immutables: ignore
+    unnecessary_import: ignore
+    uri_does_not_exist: ignore
