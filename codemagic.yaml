@@ -59,6 +59,12 @@ workflows:
           rm -f lib/presentation/screens/mistake_notebook_screen.dart
           echo "Stale files removed"
 
+      - name: Clean build cache
+        script: |
+          flutter clean
+          dart run build_runner clean
+          echo "Build cache cleared"
+
       - name: Android signing report
         script: |
           chmod +x android/gradlew
