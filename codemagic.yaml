@@ -22,7 +22,7 @@ workflows:
       - name: Install Firebase Android config
         script: |
           if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
-            echo "Missing GOOGLE_SERVICES_JSON_B64. Add the base64-encoded android/app/google-services.json to the imported firebase_credentials group in Codemagic."
+            echo "Missing GOOGLE_SERVICES_JSON_B64. Add the base64-encoded android/app/google-services.json to the firebase_credentials group in Codemagic."
             exit 1
           fi
           mkdir -p android/app
@@ -43,13 +43,10 @@ workflows:
             echo "Expected keystore reference: prepsarthi_release"
             exit 1
           fi
-          cat > android/key.properties <<EOF
-storePassword=$CM_KEYSTORE_PASSWORD
-keyPassword=$CM_KEY_PASSWORD
-keyAlias=$CM_KEY_ALIAS
-storeFile=$CM_KEYSTORE_PATH
-EOF
-          echo "[OK] android/key.properties written:"
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
+            "$CM_KEYSTORE_PASSWORD" "$CM_KEY_PASSWORD" "$CM_KEY_ALIAS" "$CM_KEYSTORE_PATH" \
+            > android/key.properties
+          echo "[OK] android/key.properties written"
           echo "  storeFile=$CM_KEYSTORE_PATH"
           echo "  keyAlias=$CM_KEY_ALIAS"
           ls -lh "$CM_KEYSTORE_PATH"
