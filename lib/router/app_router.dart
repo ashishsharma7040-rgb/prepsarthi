@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../presentation/providers/all_providers.dart';
 import '../presentation/screens/auth/login_screen.dart';
-import '../core/utils/notification_helper.dart';
 import '../presentation/screens/onboarding/onboarding_screens.dart';
 import '../presentation/screens/dashboard/dashboard_screen.dart';
 import '../presentation/screens/dashboard/today_command_center.dart';
@@ -67,22 +66,44 @@ class AppRoutes {
   static const achievements = '/achievements';
 }
 
+// ─── Transition helpers (top-level so they are visible throughout file) ───────
+CustomTransitionPage<T> fade<T>(GoRouterState s, Widget child) =>
+    CustomTransitionPage<T>(
+      key: s.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 280),
+      transitionsBuilder: (_, animation, __, w) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+        child: w,
+      ),
+    );
+
+CustomTransitionPage<T> slide<T>(GoRouterState s, Widget child) =>
+    CustomTransitionPage<T>(
+      key: s.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionsBuilder: (_, animation, __, w) => SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1.0, 0.0),
+          end: Offset.zero,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
+        child: w,
+      ),
+    );
+
 // ─── Router provider ──────────────────────────────────────────────────────────
 final routerProvider = Provider<GoRouter>((ref) {
-  final authNotifier = ref.watch(authProvider);
+  final auth = ref.watch(authProvider);
 
-final routerProvider = Provider<GoRouter>((ref) {
-  final authNotifier = ref.watch(authProvider);
-
-  final router = GoRouter(
+  return GoRouter(
     initialLocation: AppRoutes.login,
     debugLogDiagnostics: false,
     redirect: (context, state) {
-      final isLoading = authNotifier.isLoading;
-      if (isLoading) return null;
+      if (auth.isLoading) return null;
 
-      final isLoggedIn = authNotifier.isLoggedIn;
-      final onboarded = authNotifier.onboardingComplete;
+      final isLoggedIn = auth.isLoggedIn;
+      final onboarded = auth.onboardingComplete;
       final path = state.uri.path;
 
       if (!isLoggedIn && path != AppRoutes.login) return AppRoutes.login;
@@ -98,35 +119,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppRoutes.dashboard;
       }
 
-      // ── HIGH #4: Notification deep-link (cold start) ──────────────────
-      // After auth is confirmed and onboarding is complete, consume any
-      // pending route that was set by a notification tap before the router
-      // was ready (cold start scenario).
-      if (isLoggedIn && onboarded) {
-        final pending = NotificationHelper.consumePendingRoute();
-        if (pending != null && pending != path) return pending;
-      }
-
       return null;
     },
     routes: [
       GoRoute(
         path: AppRoutes.login,
-        pageBuilder: (_, s) => _fade(s, const LoginScreen()),
+        pageBuilder: (_, s) => fade(s, const LoginScreen()),
       ),
 
       GoRoute(path: AppRoutes.welcome,
-          pageBuilder: (_, s) => _slide(s, const WelcomeScreen())),
+          pageBuilder: (_, s) => slide(s, const WelcomeScreen())),
       GoRoute(path: AppRoutes.targetSelector,
-          pageBuilder: (_, s) => _slide(s, const TargetSelectorScreen())),
+          pageBuilder: (_, s) => slide(s, const TargetSelectorScreen())),
       GoRoute(path: AppRoutes.examYear,
-          pageBuilder: (_, s) => _slide(s, const ExamYearScreen())),
+          pageBuilder: (_, s) => slide(s, const ExamYearScreen())),
       GoRoute(path: AppRoutes.dailyHours,
-          pageBuilder: (_, s) => _slide(s, const DailyHoursScreen())),
+          pageBuilder: (_, s) => slide(s, const DailyHoursScreen())),
       GoRoute(path: AppRoutes.blackoutDates,
-          pageBuilder: (_, s) => _slide(s, const BlackoutDatesScreen())),
+          pageBuilder: (_, s) => slide(s, const BlackoutDatesScreen())),
       GoRoute(path: AppRoutes.generatingPlan,
-          pageBuilder: (_, s) => _fade(s, const GeneratingPlanScreen())),
+          pageBuilder: (_, s) => fade(s, const GeneratingPlanScreen())),
 
       // Main Shell
       ShellRoute(
@@ -134,49 +146,51 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: AppRoutes.dashboard,
-            pageBuilder: (_, s) => _fade(s, const DashboardScreen()),
+            pageBuilder: (_, s) => fade(s, const DashboardScreen()),
           ),
           GoRoute(
             path: AppRoutes.plan,
-            pageBuilder: (_, s) => _fade(s, const WeeklyPlanScreen()),
+            pageBuilder: (_, s) => fade(s, const WeeklyPlanScreen()),
             routes: [
               GoRoute(
                 path: 'chapter/:name',
-                pageBuilder: (_, s) => _slide(s,
-                    ChapterDetailScreen(
-                      chapterName: Uri.decodeComponent(
-                          s.pathParameters['name'] ?? ''),
-                    )),
+                pageBuilder: (_, s) => slide(
+                  s,
+                  ChapterDetailScreen(
+                    chapterName: Uri.decodeComponent(
+                        s.pathParameters['name'] ?? ''),
+                  ),
+                ),
               ),
             ],
           ),
           GoRoute(
             path: AppRoutes.calendar,
-            pageBuilder: (_, s) => _fade(s, const MonthlyCalendarScreen()),
+            pageBuilder: (_, s) => fade(s, const MonthlyCalendarScreen()),
           ),
           GoRoute(
             path: AppRoutes.log,
-            pageBuilder: (_, s) => _fade(s, const DailyLogScreen()),
+            pageBuilder: (_, s) => fade(s, const DailyLogScreen()),
           ),
           GoRoute(
             path: AppRoutes.revision,
-            pageBuilder: (_, s) => _fade(s, const RevisionScheduleScreen()),
+            pageBuilder: (_, s) => fade(s, const RevisionScheduleScreen()),
           ),
         ],
       ),
 
       // AI (premium-gated)
       GoRoute(path: AppRoutes.swotReport,
-          pageBuilder: (_, s) => _slide(s, const SWOTReportScreen())),
+          pageBuilder: (_, s) => slide(s, const SWOTReportScreen())),
       GoRoute(path: AppRoutes.patternReport,
-          pageBuilder: (_, s) => _slide(s, const PatternReportScreen())),
+          pageBuilder: (_, s) => slide(s, const PatternReportScreen())),
 
       // Utilities
       GoRoute(
         path: AppRoutes.pomodoro,
         pageBuilder: (_, s) {
           final extras = s.extra as Map<String, String>?;
-          return _slide(
+          return slide(
             s,
             PomodoroTimerScreen(
               initialChapter: extras?['chapter'],
@@ -186,38 +200,38 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: AppRoutes.pastPapers,
-          pageBuilder: (_, s) => _slide(s, const PastPapersScreen())),
+          pageBuilder: (_, s) => slide(s, const PastPapersScreen())),
       GoRoute(path: AppRoutes.export,
-          pageBuilder: (_, s) => _slide(s, const ExportScreen())),
+          pageBuilder: (_, s) => slide(s, const ExportScreen())),
       GoRoute(path: AppRoutes.testScore,
-          pageBuilder: (_, s) => _slide(s, const TestScoreScreen())),
+          pageBuilder: (_, s) => slide(s, const TestScoreScreen())),
       GoRoute(path: AppRoutes.privacyPolicy,
-          pageBuilder: (_, s) => _slide(s, const PrivacyPolicyScreen())),
+          pageBuilder: (_, s) => slide(s, const PrivacyPolicyScreen())),
       GoRoute(path: AppRoutes.termsOfService,
-          pageBuilder: (_, s) => _slide(s, const TermsOfServiceScreen())),
+          pageBuilder: (_, s) => slide(s, const TermsOfServiceScreen())),
 
-      // ── Premium features (NEW) ─────────────────────────────────────────────
+      // ── Premium features ───────────────────────────────────────────────────
       GoRoute(path: AppRoutes.todayMission,
-          pageBuilder: (_, s) => _slide(s, const TodayCommandCenterPage())),
+          pageBuilder: (_, s) => slide(s, const TodayCommandCenterPage())),
       GoRoute(path: AppRoutes.weaknessRadar,
-          pageBuilder: (_, s) => _slide(s, const WeaknessRadarScreen())),
+          pageBuilder: (_, s) => slide(s, const WeaknessRadarScreen())),
       GoRoute(path: AppRoutes.mistakeNotebook,
-          pageBuilder: (_, s) => _slide(s, const MistakeNotebookScreen())),
+          pageBuilder: (_, s) => slide(s, const MistakeNotebookScreen())),
       GoRoute(path: AppRoutes.chapterMastery,
-          pageBuilder: (_, s) => _slide(s, const ChapterMasteryScreen())),
+          pageBuilder: (_, s) => slide(s, const ChapterMasteryScreen())),
       GoRoute(path: AppRoutes.premiumPaywall,
-          pageBuilder: (_, s) => _slide(s, const PremiumPaywallScreen())),
+          pageBuilder: (_, s) => slide(s, const PremiumPaywallScreen())),
       GoRoute(path: AppRoutes.achievements,
-          pageBuilder: (_, s) => _slide(s, const AchievementsScreen())),
+          pageBuilder: (_, s) => slide(s, const AchievementsScreen())),
 
       // Settings
       GoRoute(
         path: AppRoutes.settings,
-        pageBuilder: (_, s) => _slide(s, const SettingsScreen()),
+        pageBuilder: (_, s) => slide(s, const SettingsScreen()),
         routes: [
           GoRoute(
             path: 'subscription',
-            pageBuilder: (_, s) => _slide(s, const PremiumPaywallScreen()),
+            pageBuilder: (_, s) => slide(s, const PremiumPaywallScreen()),
           ),
         ],
       ),
@@ -242,35 +256,4 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ),
   );
-
-  // ── HIGH #4: Give NotificationHelper a reference to the router ──────────
-  // This enables warm-start deep-linking: notification tap calls router.go()
-  // directly instead of storing a pending route.
-  NotificationHelper.router = router;
-  return router;
 });
-
-CustomTransitionPage<T> _fade<T>(GoRouterState s, Widget child) =>
-    CustomTransitionPage<T>(
-      key: s.pageKey,
-      child: child,
-      transitionDuration: const Duration(milliseconds: 280),
-      transitionsBuilder: (_, animation, __, w) => FadeTransition(
-        opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-        child: w,
-      ),
-    );
-
-CustomTransitionPage<T> _slide<T>(GoRouterState s, Widget child) =>
-    CustomTransitionPage<T>(
-      key: s.pageKey,
-      child: child,
-      transitionDuration: const Duration(milliseconds: 300),
-      transitionsBuilder: (_, animation, __, w) => SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
-          end: Offset.zero,
-        ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
-        child: w,
-      ),
-    );

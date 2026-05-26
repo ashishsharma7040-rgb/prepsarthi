@@ -72,7 +72,6 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
       final safeHours = _hours.clamp(0.25, 10.0);
       final dailyTarget = ref.read(authProvider).user?.dailyStudyHours ?? 6.0;
       final todayAlready = ref.read(studyLogProvider.notifier).hoursForDate(DateTime.now());
-      final totalAfter = todayAlready + safeHours;
 
       // Warn if this single session exceeds 2× daily target — likely a mistake
       if (safeHours > dailyTarget * 2 && mounted) {

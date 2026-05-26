@@ -569,7 +569,7 @@ class _AddSheetState extends State<_AddSheet> {
                 .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                 .toList(),
             onChanged: (v) => setState(
-                () => {_examType = v!, _subs = _buildSubs(_examType)}),
+                () { _examType = v!; _subs = _buildSubs(_examType); }),
             decoration: const InputDecoration(
                 labelText: 'Exam Type',
                 prefixIcon: Icon(Icons.school_rounded)),

@@ -206,9 +206,9 @@ class _ChapterMasteryScreenState
     final db = IsarService.db;
     c.masteryLevel = level;
     // Sync legacy status
-    if (level >= 5) c.status = 'revised';
-    else if (level >= 3) c.status = 'learned';
-    if (level == 7) c.status = 'tested';
+    if (level >= 5) { c.status = 'revised'; }
+    else if (level >= 3) { c.status = 'learned'; }
+    if (level == 7) { c.status = 'tested'; }
     await db.writeTxn(() async => db.chapterSchemas.put(c));
     ref.read(planProvider.notifier).refresh();
   }

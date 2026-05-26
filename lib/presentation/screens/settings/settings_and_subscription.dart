@@ -117,7 +117,7 @@ class SettingsScreen extends ConsumerWidget {
                     _Divider(isDark: isDark),
                     _NavTile(emoji: '🔄', label: 'Reload Syllabus',
                         subtitle: 'Reset chapter data from bundled JSON', isDark: isDark,
-                        onTap: () => _confirmReload(context)),
+                        onTap: () => _confirmReload(context, ref)),
                     _Divider(isDark: isDark),
                     _NavTile(emoji: '🗑️', label: 'Clear All Study Data',
                         subtitle: 'Deletes logs, plans and progress permanently',
@@ -216,7 +216,7 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmReload(BuildContext context) async {
+  Future<void> _confirmReload(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
