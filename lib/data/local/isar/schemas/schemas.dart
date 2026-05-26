@@ -9,3 +9,4 @@ export 'user_settings_schema.dart';
 export 'achievement_schema.dart';
 export 'mock_test_schema.dart';
 export 'mistake_entry_schema.dart';
+export 'readiness_snapshot_schema.dart';

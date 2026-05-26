@@ -1,6 +1,7 @@
 // lib/core/utils/notification_helper.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -90,6 +91,7 @@ class NotificationHelper {
       _notifDetails(
         title: 'PrepSarthi – Study Time!',
         body: message,
+        payload: payloadDailyReminder,
         ongoing: false,
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -130,7 +132,11 @@ class NotificationHelper {
       '🔄 Revision Due – $chapterName',
       body,
       tz.TZDateTime.from(notifDate, tz.local),
-      _notifDetails(title: '🔄 Revision Due – $chapterName', body: body),
+      _notifDetails(
+          title: '🔄 Revision Due – $chapterName',
+          body: body,
+          payload: '${payloadRevisionDue}:$chapterName',
+      ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
@@ -214,6 +220,7 @@ class NotificationHelper {
   static NotificationDetails _notifDetails({
     required String title,
     required String body,
+    String? payload,
     bool ongoing = false,
   }) {
     return NotificationDetails(
@@ -242,25 +249,60 @@ class NotificationHelper {
     );
   }
 
-  // Global navigator key — set this in app.dart for navigation from notifications
+  // ── Notification Payloads ─────────────────────────────────────────────────
+  //
+  // Convention: payload strings used by all scheduled notifications.
+  // The router reads these via [pendingRoute] on cold start.
+  static const payloadDailyReminder = 'daily_reminder';
+  static const payloadRevisionDue   = 'revision_due';
+  static const payloadStreakReached  = 'streak_milestone';
+  static const payloadPomodoroBreak  = 'pomodoro_break';
+
+  // ── Pending route — for cold-start deep-linking ───────────────────────────
+  //
+  // When the app is cold-started from a notification tap, the router may not
+  // be ready when _onNotificationTap fires. We store the target route here.
+  // GoRouter reads this once in its [redirect] callback and then clears it.
+  static String? pendingRoute;
+
+  // Global navigator key — set this in app.dart for warm-start navigation
   static GlobalKey<NavigatorState>? navigatorKey;
+  // GoRouter instance — set after router is built so we can use go() on tap
+  static GoRouter? router;
 
   static void _onNotificationTap(NotificationResponse response) {
     final payload = response.payload ?? '';
-    final nav = navigatorKey?.currentState;
-    if (nav == null) return;
 
-    if (payload.startsWith('revision:')) {
-      // Navigate to revision schedule screen
-      nav.pushNamed('/revision');
-    } else if (payload.startsWith('study:')) {
-      // Navigate to daily log screen
-      nav.pushNamed('/log');
-    } else if (payload.startsWith('streak')) {
-      // Navigate to dashboard
-      nav.pushNamed('/dashboard');
-    } else {
-      nav.pushNamed('/dashboard');
+    // Map payload → target route
+    final targetRoute = _routeForPayload(payload);
+
+    // Warm start: router is ready — navigate immediately
+    if (router != null) {
+      router!.go(targetRoute);
+      return;
     }
+
+    // Cold start: router not yet built — store for redirect hook
+    pendingRoute = targetRoute;
+  }
+
+  static String _routeForPayload(String payload) {
+    if (payload.startsWith(payloadRevisionDue)) return '/revision';
+    if (payload.startsWith(payloadDailyReminder)) return '/today';
+    if (payload.startsWith(payloadStreakReached)) return '/dashboard';
+    if (payload.startsWith(payloadPomodoroBreak)) return '/log';
+    // Legacy fallback for old payload format
+    if (payload.startsWith('revision:')) return '/revision';
+    if (payload.startsWith('study:')) return '/log';
+    if (payload.startsWith('streak')) return '/dashboard';
+    return '/dashboard';
+  }
+
+  /// Called by the GoRouter redirect to consume a pending cold-start route.
+  /// Returns null after the first call (clears itself).
+  static String? consumePendingRoute() {
+    final route = pendingRoute;
+    pendingRoute = null;
+    return route;
   }
 }

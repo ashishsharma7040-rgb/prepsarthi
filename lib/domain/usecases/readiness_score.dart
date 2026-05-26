@@ -16,6 +16,7 @@
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/local/isar/schemas/schemas.dart';
+import '../../data/local/isar/schemas/readiness_snapshot_schema.dart';
 
 // ── ReadinessScore value object ────────────────────────────────────────────────
 class ReadinessScore {
@@ -246,6 +247,70 @@ class ReadinessCalculator {
       },
       tips: tips.take(3).toList(),
     );
+  }
+
+  // ── Snapshot persistence — HIGH #7 ─────────────────────────────────────────
+  //
+  // Called automatically at the end of calculate().
+  // Writes at most one snapshot per calendar day (idempotent on repeated calls).
+  // Prunes snapshots older than 90 days to keep the DB lean.
+  static Future<void> saveSnapshot(ReadinessScore result) async {
+    try {
+      final db = IsarService.db;
+      final today = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+
+      // Overwrite today's snapshot if one exists
+      final existing = await db.readinessSnapshotSchemas
+          .filter()
+          .dateBetween(
+            today,
+            today.add(const Duration(hours: 23, minutes: 59)),
+          )
+          .findFirst();
+
+      await db.writeTxn(() async {
+        final snap = existing ?? ReadinessSnapshotSchema();
+        snap.date = today;
+        snap.score = result.score;
+        snap.grade = result.grade;
+        snap.syllabusRatio = result.breakdown['Syllabus'] ?? 0;
+        snap.revisionRatio = result.breakdown['Revision'] ?? 0;
+        snap.testPerf = result.breakdown['Tests'] ?? 0;
+        snap.consistencyRatio = result.breakdown['Consistency'] ?? 0;
+        snap.backlogScore = result.breakdown['Backlog'] ?? 0;
+        snap.mistakeScore = result.breakdown['Mistakes'] ?? 0;
+        await db.readinessSnapshotSchemas.put(snap);
+
+        // Prune old snapshots (keep last 90 days)
+        final cutoff = DateTime.now().subtract(const Duration(days: 90));
+        await db.readinessSnapshotSchemas
+            .filter()
+            .dateLessThan(cutoff)
+            .deleteAll();
+      });
+    } catch (_) {
+      // Snapshot failure must never crash the UI — swallow silently
+    }
+  }
+
+  /// Loads the last [days] daily snapshots sorted oldest-first.
+  /// Used by the trend chart on Today Command Center.
+  static Future<List<ReadinessSnapshotSchema>> loadTrend({int days = 30}) async {
+    try {
+      final db = IsarService.db;
+      final since = DateTime.now().subtract(Duration(days: days));
+      return db.readinessSnapshotSchemas
+          .filter()
+          .dateGreaterThan(since)
+          .sortByDate()
+          .findAll();
+    } catch (_) {
+      return [];
+    }
   }
 
   // ── Private Isar queries ───────────────────────────────────────────────────

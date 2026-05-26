@@ -9,6 +9,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/local/isar/schemas/chapter_schema.dart';
+import '../../data/local/isar/schemas/readiness_snapshot_schema.dart';
 // ✅ Delegate to single engine — no formula duplication
 import '../../domain/usecases/readiness_score.dart';
 import 'all_providers.dart';
@@ -28,7 +29,19 @@ final readinessScoreProvider =
   // Re-compute whenever plan or study logs change
   ref.watch(planProvider);
   ref.watch(studyLogProvider);
-  return ReadinessCalculator.calculate();
+  final result = await ReadinessCalculator.calculate();
+  // HIGH #7 — persist snapshot for 30-day trend chart (fire-and-forget)
+  ReadinessCalculator.saveSnapshot(result);
+  return result;
+});
+
+// ── HIGH #7: 30-day readiness trend ─────────────────────────────────────────
+/// Loads the last 30 daily snapshots for the trend sparkline.
+/// Sorted oldest-first so chart renders left→right.
+final readinessTrendProvider =
+    FutureProvider.autoDispose<List<ReadinessSnapshotSchema>>((ref) async {
+  ref.watch(readinessScoreProvider); // re-fetch when score updates
+  return ReadinessCalculator.loadTrend(days: 30);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

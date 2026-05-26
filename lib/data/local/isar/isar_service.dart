@@ -11,6 +11,7 @@ import 'schemas/user_settings_schema.dart';
 import 'schemas/achievement_schema.dart';
 import 'schemas/mock_test_schema.dart';
 import 'schemas/mistake_entry_schema.dart';
+import 'schemas/readiness_snapshot_schema.dart';
 
 export 'schemas/schemas.dart';
 
@@ -33,6 +34,7 @@ class IsarService {
         AchievementSchemaSchema,
         MockTestSchemaSchema,        // ← TASK 1
         MistakeEntrySchemaSchema,    // ← TASK 2
+        ReadinessSnapshotSchemaSchema, // ← HIGH #7: daily trend snapshots
       ],
       directory: dir.path,
       name: 'prepsarthi_db',
@@ -66,6 +68,7 @@ class IsarService {
       await db.achievementSchemas.clear();
       await db.mockTestSchemas.clear();
       await db.mistakeEntrySchemas.clear();
+      await db.readinessSnapshotSchemas.clear();
     });
   }
 }

@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:ui' as ui;
 // ═══════════════════════════════════════════════════════════════════════════════
 // lib/presentation/screens/ai/swot_report_screen.dart
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -14,6 +15,8 @@ import '../../../router/app_router.dart';
 
 const _kSwotCacheKey = 'prepsarthi_swot_cache_v1';
 const _kSwotCacheTimeKey = 'prepsarthi_swot_cache_time_v1';
+const _kPatternCacheKey = 'prepsarthi_pattern_cache_v1';
+const _kPatternCacheTimeKey = 'prepsarthi_pattern_cache_time_v1';
 
 // Cached SWOT provider — returns cached report on network failure
 final _swotReportProvider = FutureProvider<_CachedReport<SWOTReport?>>((ref) async {
@@ -86,7 +89,6 @@ class SWOTReportScreen extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final isPremium = ref.watch(subscriptionProvider).isPremium;
     final swotAsync = ref.watch(_swotReportProvider);
-    // swotAsync now wraps _CachedReport<SWOTReport?>
 
     return Scaffold(
       body: SafeArea(
@@ -97,15 +99,33 @@ class SWOTReportScreen extends ConsumerWidget {
               title: const Text('SWOT Analysis'),
               pinned: true,
               actions: [
-                _CooldownRefreshButton(
-                  cooldownKey: GeminiService.swotCooldownKey,
-                  onRefresh: () => ref.invalidate(_swotReportProvider),
-                ),
+                if (isPremium)
+                  _CooldownRefreshButton(
+                    cooldownKey: GeminiService.swotCooldownKey,
+                    onRefresh: () => ref.invalidate(_swotReportProvider),
+                  ),
               ],
             ),
 
+            // ── FREE TIER: show partial SWOT with blur paywall ──────────
             if (!isPremium)
-              SliverFillRemaining(child: _PremiumGate(isDark: isDark))
+              swotAsync.when(
+                loading: () => SliverFillRemaining(child: _LoadingAI(isDark: isDark)),
+                error: (_, __) => SliverFillRemaining(child: _PremiumGate(isDark: isDark)),
+                data: (cached) {
+                  if (cached.data == null) {
+                    return SliverFillRemaining(child: _PremiumGate(isDark: isDark));
+                  }
+                  // Show strengths section free + blur the rest
+                  return SliverFillRemaining(
+                    child: _FreeTierSWOTPreview(
+                      report: cached.data!,
+                      isDark: isDark,
+                    ),
+                  );
+                },
+              )
+            // ── PREMIUM: full report ──────────────────────────────────────
             else
               swotAsync.when(
                 loading: () => SliverFillRemaining(child: _LoadingAI(isDark: isDark)),
@@ -123,6 +143,273 @@ class SWOTReportScreen extends ConsumerWidget {
                   );
                 },
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Free-tier SWOT Preview — shows Strengths + blurs the rest ───────────────
+//
+// HIGH #6 fix: "taste-then-pay" model.
+// Free users see the Key Insight banner + their Strengths (first 2 items).
+// Everything below (Weaknesses, Opportunities, Threats, Recommendations) is
+// rendered but blurred with a paywall CTA overlay — giving them proof of value
+// before asking them to pay.
+
+class _FreeTierSWOTPreview extends StatelessWidget {
+  final SWOTReport report;
+  final bool isDark;
+
+  const _FreeTierSWOTPreview({required this.report, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = isDark ? DarkColors.primary : LightColors.primary;
+
+    return Stack(
+      children: [
+        // ── Scrollable content (full report, some parts will be blurred) ──
+        ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+          children: [
+            // Free: Key message banner
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? DarkColors.gradientPrimary
+                      : LightColors.gradientPrimary,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('💡', style: TextStyle(fontSize: 22)),
+                      const SizedBox(width: 8),
+                      Text('AI Key Insight',
+                          style: theme.textTheme.labelLarge
+                              ?.copyWith(color: Colors.white70)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    report.keyMessage,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
+
+            const SizedBox(height: 16),
+
+            // Free: Strengths section (first 2 items only)
+            _SWOTQuadrant(
+              emoji: '💪',
+              title: 'Your Strengths',
+              items: report.strengths.take(2).toList(),
+              color: LightColors.learned,
+              isDark: isDark,
+            ).animate(delay: 150.ms).fadeIn(),
+
+            const SizedBox(height: 12),
+
+            // Locked: Weaknesses, Opportunities, Threats, Recommendations
+            // Rendered blurred so users see content exists.
+            _BlurredSection(isDark: isDark),
+          ],
+        ),
+
+        // ── Paywall overlay pinned at bottom ──────────────────────────────
+        Positioned(
+          left: 0, right: 0, bottom: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  (isDark ? DarkColors.background : LightColors.background)
+                      .withOpacity(0),
+                  (isDark ? DarkColors.background : LightColors.background)
+                      .withOpacity(0.97),
+                ],
+                stops: const [0.0, 0.4],
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '🔒 Unlock Full SWOT Analysis',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Weaknesses, Opportunities, Threats + personalised Action Plan',
+                  style: theme.textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => context.push(AppRoutes.subscription),
+                  child: const Text('Upgrade to Premium — ₹99/month'),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '7-day free trial • Cancel anytime',
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: accent),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A blurred, greyed representation of the locked content sections.
+/// Renders enough visual content to prove the data is real —
+/// but blurred so the student is motivated to unlock it.
+class _BlurredSection extends StatelessWidget {
+  final bool isDark;
+  const _BlurredSection({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final placeholders = [
+      ('⚠️', 'Weaknesses', LightColors.error, [
+        'Limited revision consistency\nLong gaps between review sessions',
+        'Subject imbalance detected\nOne subject receiving 3× more hours'
+      ]),
+      ('🌟', 'Opportunities', LightColors.secondary, [
+        'High-weightage chapters untapped\nOptimising could add 20+ marks',
+        'Revision efficiency window\nSpaced repetition not yet leveraged'
+      ]),
+      ('🔴', 'Threats', LightColors.tested, [
+        'Backlog accumulation risk\nSlowing pace vs. exam timeline',
+        'Test practice deficit\nMock test frequency below target'
+      ]),
+    ];
+
+    return ImageFiltered(
+      imageFilter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+      child: IgnorePointer(
+        child: Column(
+          children: [
+            ...placeholders.map((p) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: p.$3.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: p.$3.withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(p.$1, style: const TextStyle(fontSize: 18)),
+                        const SizedBox(width: 6),
+                        Text(p.$2,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                                color: p.$3, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ...p.$4.map((item) {
+                      final parts = item.split('\n');
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('• ${parts[0]}',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w600)),
+                            if (parts.length > 1) ...[
+                              const SizedBox(height: 3),
+                              Text(parts[1],
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(height: 1.4)),
+                            ],
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            )),
+            // Action plan placeholder
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? DarkColors.surfaceCard : LightColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? DarkColors.outline : LightColors.outline,
+                  width: 0.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('🎯 Action Plan', style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 12),
+                  ...[
+                    'Next 7 days: Complete all high-weightage pending chapters',
+                    'Next 14 days: Schedule 2 full mock tests this fortnight',
+                    'Next 30 days: Revision of entire completed syllabus',
+                  ].asMap().entries.map((e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 26, height: 26,
+                          decoration: BoxDecoration(
+                            color: LightColors.primary.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Center(
+                            child: Text('${e.key + 1}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                    color: LightColors.primary)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(e.value,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(height: 1.4)),
+                        ),
+                      ],
+                    ),
+                  )),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -515,19 +802,52 @@ class _InfoCard extends StatelessWidget {
 
 // ─── Pattern Report Screen ────────────────────────────────────────────────────
 
-final _patternReportProvider = FutureProvider<PatternReport?>((ref) async {
+final _patternReportProvider = FutureProvider<_CachedReport<PatternReport?>>((ref) async {
   final sub = ref.read(subscriptionProvider);
-  if (!sub.isPremium) return null;
+  if (!sub.isPremium) return _CachedReport(data: null, cachedAt: null);
 
   final planState = ref.read(planProvider);
   final logs = ref.read(studyLogProvider);
   final authState = ref.read(authProvider);
+  final prefs = await SharedPreferences.getInstance();
 
-  return GeminiService.generatePatternAnalysis(
-    logs: logs,
-    chapters: planState.chapters,
-    streakDays: authState.user?.currentStreak ?? 0,
-  );
+  try {
+    final report = await GeminiService.generatePatternAnalysis(
+      logs: logs,
+      chapters: planState.chapters,
+      streakDays: authState.user?.currentStreak ?? 0,
+    );
+    // Cache on success
+    await prefs.setString(_kPatternCacheKey, jsonEncode({
+      'most_productive_time': report.mostProductiveTime,
+      'study_rhythm': report.studyRhythm,
+      'burnout_risk': report.burnoutRisk,
+      'burnout_risk_reason': report.burnoutRiskReason,
+      'strengths_pattern': report.strengthsPattern,
+      'watch_out': report.watchOut,
+      'this_week_focus': report.thisWeekFocus,
+      'pace_assessment': report.paceAssessment,
+      'best_session_length': report.bestSessionLength,
+      'motivational_insight': report.motivationalInsight,
+    }));
+    await prefs.setInt(_kPatternCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
+    return _CachedReport(data: report, cachedAt: null);
+  } catch (_) {
+    // Offline — serve cached report
+    final cached = prefs.getString(_kPatternCacheKey);
+    final cachedTime = prefs.getInt(_kPatternCacheTimeKey);
+    if (cached != null) {
+      final report = PatternReport.fromJson(
+          jsonDecode(cached) as Map<String, dynamic>);
+      return _CachedReport(
+        data: report,
+        cachedAt: cachedTime != null
+            ? DateTime.fromMillisecondsSinceEpoch(cachedTime)
+            : null,
+      );
+    }
+    rethrow;
+  }
 });
 
 class PatternReportScreen extends ConsumerWidget {
@@ -562,11 +882,17 @@ class PatternReportScreen extends ConsumerWidget {
               reportAsync.when(
                 loading: () => SliverFillRemaining(child: _LoadingAI(isDark: isDark)),
                 error: (e, _) => SliverFillRemaining(child: _AIError(error: e.toString(), isDark: isDark)),
-                data: (report) {
-                  if (report == null) {
+                data: (cached) {
+                  if (cached.data == null) {
                     return SliverFillRemaining(child: _PremiumGate(isDark: isDark));
                   }
-                  return _PatternContent(report: report, isDark: isDark);
+                  return SliverList(
+                    delegate: SliverChildListDelegate([
+                      if (cached.isFromCache)
+                        _CacheBanner(cacheAge: cached.cacheAge),
+                      _PatternContent(report: cached.data!, isDark: isDark),
+                    ]),
+                  );
                 },
               ),
           ],

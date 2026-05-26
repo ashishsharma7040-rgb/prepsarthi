@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../presentation/providers/all_providers.dart';
 import '../presentation/screens/auth/login_screen.dart';
+import '../core/utils/notification_helper.dart';
 import '../presentation/screens/onboarding/onboarding_screens.dart';
 import '../presentation/screens/dashboard/dashboard_screen.dart';
 import '../presentation/screens/dashboard/today_command_center.dart';
@@ -70,7 +71,10 @@ class AppRoutes {
 final routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = ref.watch(authProvider);
 
-  return GoRouter(
+final routerProvider = Provider<GoRouter>((ref) {
+  final authNotifier = ref.watch(authProvider);
+
+  final router = GoRouter(
     initialLocation: AppRoutes.login,
     debugLogDiagnostics: false,
     redirect: (context, state) {
@@ -92,6 +96,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isLoggedIn && onboarded &&
           (path == AppRoutes.login || path.startsWith('/onboarding'))) {
         return AppRoutes.dashboard;
+      }
+
+      // ── HIGH #4: Notification deep-link (cold start) ──────────────────
+      // After auth is confirmed and onboarding is complete, consume any
+      // pending route that was set by a notification tap before the router
+      // was ready (cold start scenario).
+      if (isLoggedIn && onboarded) {
+        final pending = NotificationHelper.consumePendingRoute();
+        if (pending != null && pending != path) return pending;
       }
 
       return null;
@@ -229,6 +242,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ),
   );
+
+  // ── HIGH #4: Give NotificationHelper a reference to the router ──────────
+  // This enables warm-start deep-linking: notification tap calls router.go()
+  // directly instead of storing a pending route.
+  NotificationHelper.router = router;
+  return router;
 });
 
 CustomTransitionPage<T> _fade<T>(GoRouterState s, Widget child) =>

@@ -24,6 +24,10 @@ class GeminiService {
   static const _swotCooldownKey = 'ai_last_fetch_swot';
   static const _patternCooldownKey = 'ai_last_fetch_pattern';
 
+  /// Public accessors for UI widgets (e.g. _CooldownRefreshButton).
+  static String get swotCooldownKey => _swotCooldownKey;
+  static String get patternCooldownKey => _patternCooldownKey;
+
   /// Returns true if enough time has passed since the last AI report fetch.
   /// [prefKey] — one of the _xxxCooldownKey constants above.
   static Future<bool> _isCooldownExpired(String prefKey) async {
