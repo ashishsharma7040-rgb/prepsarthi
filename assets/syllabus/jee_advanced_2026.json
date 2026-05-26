@@ -1,0 +1,64 @@
+{
+  "source": "jee_advanced",
+  "year": 2026,
+  "authority": "IIT Joint Admission Board",
+  "subjects": [
+    {
+      "name": "Physics",
+      "chapters": [
+        {"name": "General Physics & Measurement", "class": 11, "estimatedHours": 8, "weightage": 3.5, "difficulty": 3, "pyqCount": 18, "tags": ["measurement", "units", "errors"]},
+        {"name": "Kinematics", "class": 11, "estimatedHours": 10, "weightage": 4.0, "difficulty": 3, "pyqCount": 22, "tags": ["motion", "projectile", "relative"]},
+        {"name": "Laws of Motion", "class": 11, "estimatedHours": 12, "weightage": 5.0, "difficulty": 4, "pyqCount": 28, "tags": ["newton", "friction", "constraints"]},
+        {"name": "Work, Energy and Power", "class": 11, "estimatedHours": 10, "weightage": 4.5, "difficulty": 4, "pyqCount": 25, "tags": ["energy", "power", "conservative"]},
+        {"name": "Rotational Motion", "class": 11, "estimatedHours": 16, "weightage": 6.5, "difficulty": 5, "pyqCount": 35, "tags": ["torque", "moi", "rolling"]},
+        {"name": "Gravitation", "class": 11, "estimatedHours": 8, "weightage": 3.5, "difficulty": 3, "pyqCount": 18, "tags": ["orbital", "kepler", "potential"]},
+        {"name": "Properties of Matter", "class": 11, "estimatedHours": 8, "weightage": 3.0, "difficulty": 3, "pyqCount": 16, "tags": ["elasticity", "fluid", "surface tension"]},
+        {"name": "Thermal Physics", "class": 11, "estimatedHours": 14, "weightage": 5.5, "difficulty": 4, "pyqCount": 30, "tags": ["thermodynamics", "kinetic theory", "heat transfer"]},
+        {"name": "Simple Harmonic Motion", "class": 11, "estimatedHours": 10, "weightage": 4.0, "difficulty": 4, "pyqCount": 22, "tags": ["oscillation", "spring", "pendulum"]},
+        {"name": "Wave Motion & Sound", "class": 11, "estimatedHours": 10, "weightage": 4.0, "difficulty": 4, "pyqCount": 22, "tags": ["waves", "doppler", "standing waves"]},
+        {"name": "Optics (Ray & Wave)", "class": 12, "estimatedHours": 18, "weightage": 7.5, "difficulty": 5, "pyqCount": 40, "tags": ["refraction", "interference", "diffraction", "polarisation"]},
+        {"name": "Electrostatics", "class": 12, "estimatedHours": 16, "weightage": 6.5, "difficulty": 5, "pyqCount": 36, "tags": ["coulomb", "gauss", "potential", "capacitor"]},
+        {"name": "Current Electricity", "class": 12, "estimatedHours": 12, "weightage": 5.0, "difficulty": 4, "pyqCount": 28, "tags": ["circuits", "kirchhoff", "wheatstone"]},
+        {"name": "Magnetic Effects of Current", "class": 12, "estimatedHours": 14, "weightage": 5.5, "difficulty": 4, "pyqCount": 30, "tags": ["biot savart", "ampere", "lorentz"]},
+        {"name": "Electromagnetic Induction & AC", "class": 12, "estimatedHours": 14, "weightage": 5.5, "difficulty": 5, "pyqCount": 32, "tags": ["faraday", "lenz", "transformer", "resonance"]},
+        {"name": "Modern Physics (Depth)", "class": 12, "estimatedHours": 20, "weightage": 8.5, "difficulty": 5, "pyqCount": 48, "tags": ["photoelectric", "atom", "nucleus", "radioactivity", "x-rays", "semiconductors"]}
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "chapters": [
+        {"name": "Physical Chemistry: States of Matter", "class": 11, "estimatedHours": 8, "weightage": 3.0, "difficulty": 3, "pyqCount": 16, "tags": ["gas laws", "liquid", "solid"]},
+        {"name": "Atomic Structure", "class": 11, "estimatedHours": 10, "weightage": 4.0, "difficulty": 3, "pyqCount": 20, "tags": ["bohr", "quantum numbers", "orbitals"]},
+        {"name": "Chemical Bonding", "class": 11, "estimatedHours": 12, "weightage": 4.5, "difficulty": 4, "pyqCount": 24, "tags": ["vsepr", "hybridisation", "mo theory"]},
+        {"name": "Thermodynamics & Thermochemistry", "class": 11, "estimatedHours": 14, "weightage": 5.5, "difficulty": 4, "pyqCount": 30, "tags": ["enthalpy", "entropy", "gibbs"]},
+        {"name": "Chemical Equilibrium", "class": 11, "estimatedHours": 12, "weightage": 5.0, "difficulty": 4, "pyqCount": 26, "tags": ["kp", "kc", "le chatelier"]},
+        {"name": "Electrochemistry", "class": 12, "estimatedHours": 12, "weightage": 5.0, "difficulty": 4, "pyqCount": 28, "tags": ["nernst", "faraday", "cells"]},
+        {"name": "Chemical Kinetics", "class": 12, "estimatedHours": 10, "weightage": 4.0, "difficulty": 4, "pyqCount": 22, "tags": ["rate law", "activation energy", "mechanisms"]},
+        {"name": "Solutions", "class": 12, "estimatedHours": 8, "weightage": 3.5, "difficulty": 3, "pyqCount": 18, "tags": ["colligative", "raoult", "vant hoff"]},
+        {"name": "Inorganic: Periodic Table & s-block", "class": 11, "estimatedHours": 8, "weightage": 3.0, "difficulty": 3, "pyqCount": 16, "tags": ["trends", "alkali metals"]},
+        {"name": "Inorganic: p-block Elements", "class": 12, "estimatedHours": 14, "weightage": 5.5, "difficulty": 4, "pyqCount": 30, "tags": ["group 13-18", "oxides", "hydrides"]},
+        {"name": "Inorganic: d & f block + Coordination", "class": 12, "estimatedHours": 14, "weightage": 5.5, "difficulty": 5, "pyqCount": 32, "tags": ["transition metals", "complex", "cfse"]},
+        {"name": "Organic Chemistry Fundamentals", "class": 11, "estimatedHours": 12, "weightage": 4.5, "difficulty": 4, "pyqCount": 26, "tags": ["isomerism", "inductive", "resonance"]},
+        {"name": "Organic: Reaction Mechanisms (Depth)", "class": 12, "estimatedHours": 20, "weightage": 8.0, "difficulty": 5, "pyqCount": 45, "tags": ["sn1", "sn2", "e1", "e2", "addition", "aromatic"]},
+        {"name": "Organic: Named Reactions & Synthesis", "class": 12, "estimatedHours": 18, "weightage": 7.5, "difficulty": 5, "pyqCount": 42, "tags": ["aldol", "cannizzaro", "grignard", "multi-step"]}
+      ]
+    },
+    {
+      "name": "Mathematics",
+      "chapters": [
+        {"name": "Algebra: Complex Numbers", "class": 11, "estimatedHours": 10, "weightage": 4.5, "difficulty": 4, "pyqCount": 24, "tags": ["argand", "de moivre", "roots"]},
+        {"name": "Algebra: Quadratics & Polynomials", "class": 11, "estimatedHours": 10, "weightage": 4.0, "difficulty": 3, "pyqCount": 20, "tags": ["vieta", "inequalities", "graphs"]},
+        {"name": "Algebra: Permutations & Combinations", "class": 11, "estimatedHours": 10, "weightage": 4.0, "difficulty": 4, "pyqCount": 22, "tags": ["counting", "arrangements", "derangement"]},
+        {"name": "Algebra: Binomial Theorem", "class": 11, "estimatedHours": 8, "weightage": 3.5, "difficulty": 3, "pyqCount": 18, "tags": ["expansion", "coefficients", "greatest term"]},
+        {"name": "Matrices & Determinants", "class": 12, "estimatedHours": 12, "weightage": 5.0, "difficulty": 4, "pyqCount": 28, "tags": ["inverse", "rank", "eigenvalue"]},
+        {"name": "Probability & Statistics", "class": 12, "estimatedHours": 12, "weightage": 5.0, "difficulty": 4, "pyqCount": 28, "tags": ["bayes", "distributions", "expectation"]},
+        {"name": "Trigonometry", "class": 11, "estimatedHours": 12, "weightage": 4.5, "difficulty": 4, "pyqCount": 26, "tags": ["identities", "equations", "inverse trig"]},
+        {"name": "Coordinate Geometry (Advanced)", "class": 11, "estimatedHours": 18, "weightage": 7.0, "difficulty": 5, "pyqCount": 40, "tags": ["conics", "parametric", "normals", "chord of contact"]},
+        {"name": "3D Geometry & Vectors", "class": 12, "estimatedHours": 14, "weightage": 5.5, "difficulty": 4, "pyqCount": 32, "tags": ["lines", "planes", "dot cross product"]},
+        {"name": "Differential Calculus", "class": 12, "estimatedHours": 20, "weightage": 8.5, "difficulty": 5, "pyqCount": 48, "tags": ["limits", "continuity", "differentiation", "applications", "tangent-normal"]},
+        {"name": "Integral Calculus (Depth)", "class": 12, "estimatedHours": 22, "weightage": 9.0, "difficulty": 5, "pyqCount": 52, "tags": ["indefinite", "definite", "area", "differential equations", "reduction"]},
+        {"name": "Sequences & Series", "class": 11, "estimatedHours": 8, "weightage": 3.5, "difficulty": 3, "pyqCount": 18, "tags": ["ap", "gp", "hp", "telescoping"]}
+      ]
+    }
+  ]
+}
