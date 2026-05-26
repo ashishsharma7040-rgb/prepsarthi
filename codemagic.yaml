@@ -44,11 +44,11 @@ workflows:
             exit 1
           fi
           cat > android/key.properties <<EOF
-          storePassword=$CM_KEYSTORE_PASSWORD
-          keyPassword=$CM_KEY_PASSWORD
-          keyAlias=$CM_KEY_ALIAS
-          storeFile=$CM_KEYSTORE_PATH
-          EOF
+storePassword=$CM_KEYSTORE_PASSWORD
+keyPassword=$CM_KEY_PASSWORD
+keyAlias=$CM_KEY_ALIAS
+storeFile=$CM_KEYSTORE_PATH
+EOF
           echo "[OK] android/key.properties written:"
           echo "  storeFile=$CM_KEYSTORE_PATH"
           echo "  keyAlias=$CM_KEY_ALIAS"
@@ -56,6 +56,11 @@ workflows:
 
       - name: Get dependencies
         script: flutter pub get
+
+      - name: Remove stale files
+        script: |
+          rm -f lib/presentation/screens/mistake_notebook_screen.dart
+          echo "Stale files removed"
 
       - name: Android signing report
         script: |
@@ -65,11 +70,6 @@ workflows:
 
       - name: Generate Isar files
         script: dart run build_runner build --delete-conflicting-outputs
-
-      - name: Remove stale files
-        script: |
-          rm -f lib/presentation/screens/mistake_notebook_screen.dart
-          echo "Stale files removed"
 
       - name: Analyze
         script: flutter analyze --no-fatal-infos --no-fatal-warnings

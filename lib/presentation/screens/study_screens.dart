@@ -81,7 +81,7 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
           builder: (ctx) => AlertDialog(
             title: const Text('⚠️ Unusually Long Session'),
             content: Text(
-              'You're logging ${safeHours.toStringAsFixed(1)}h, which is more than '
+              "You're logging ${safeHours.toStringAsFixed(1)}h, which is more than "
               '2× your daily target (${dailyTarget.toStringAsFixed(1)}h). '
               'Are you sure this is correct?',
             ),
