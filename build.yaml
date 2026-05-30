@@ -12,3 +12,4 @@ targets:
           - lib/data/local/isar/schemas/study_log_schema.dart
           - lib/data/local/isar/schemas/user_schema.dart
           - lib/data/local/isar/schemas/user_settings_schema.dart
+          - lib/data/local/isar/schemas/readiness_snapshot_schema.dart
