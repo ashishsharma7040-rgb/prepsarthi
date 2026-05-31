@@ -1,6 +1,5 @@
 // lib/presentation/screens/dashboard/dashboard_screen.dart
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';

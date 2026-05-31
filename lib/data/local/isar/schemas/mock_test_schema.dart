@@ -43,7 +43,6 @@ class MockTestSchema {
     }
   }
 
-  @ignore
   set subjectMarks(Map<String, int> value) {
     subjectMarksJson = jsonEncode(value);
   }
@@ -58,7 +57,6 @@ class MockTestSchema {
     }
   }
 
-  @ignore
   set subjectMax(Map<String, int> value) {
     subjectMaxJson = jsonEncode(value);
   }

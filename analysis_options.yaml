@@ -4,14 +4,18 @@ analyzer:
   exclude:
     - firebase/**
     - lib/presentation/screens/mistake_notebook_screen.dart
+    - "**/*.g.dart"
   errors:
     deprecated_member_use: ignore
     prefer_const_constructors: ignore
     prefer_const_literals_to_create_immutables: ignore
-    unnecessary_import: ignore
+    unused_import: ignore
     uri_does_not_exist: ignore
     unused_element: ignore
     unused_field: ignore
     unused_local_variable: ignore
     unnecessary_null_comparison: ignore
     unnecessary_cast: ignore
+    experimental_member_use: ignore
+    unnecessary_non_null_assertion: ignore
+    invalid_annotation_target: ignore
