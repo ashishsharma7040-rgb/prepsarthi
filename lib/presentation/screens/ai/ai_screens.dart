@@ -12,6 +12,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../data/remote/vertex/gemini_service.dart';
 import '../../providers/all_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../core/utils/connectivity_service.dart'; // ✅ FIX: wire connectivity_plus
 
 const _kSwotCacheKey = 'prepsarthi_swot_cache_v1';
 const _kSwotCacheTimeKey = 'prepsarthi_swot_cache_time_v1';
@@ -31,6 +32,25 @@ final _swotReportProvider = FutureProvider<_CachedReport<SWOTReport?>>((ref) asy
   final prefs = await SharedPreferences.getInstance();
 
   try {
+    // ✅ FIX: Check connectivity before calling Gemini — avoids raw exception/frozen spinner.
+    final isOnline = await ConnectivityService.isOnline();
+    if (!isOnline) {
+      // Serve cached report immediately if offline — no API call attempted
+      final cached = prefs.getString(_kSwotCacheKey);
+      final cachedTime = prefs.getInt(_kSwotCacheTimeKey);
+      if (cached != null) {
+        final report = SWOTReport.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+        return _CachedReport(
+          data: report,
+          cachedAt: cachedTime != null
+              ? DateTime.fromMillisecondsSinceEpoch(cachedTime)
+              : DateTime.now(),
+        );
+      }
+      // No cache + no internet = throw with clear message
+      throw Exception('No internet connection. Connect to load your AI report.');
+    }
+
     final report = await GeminiService.generateSWOT(
       allChapters: planState.chapters,
       last30DaysLogs: logs,
@@ -46,7 +66,7 @@ final _swotReportProvider = FutureProvider<_CachedReport<SWOTReport?>>((ref) asy
     }
     return _CachedReport(data: report, cachedAt: null);
   } catch (_) {
-    // Offline — try cache
+    // Offline or error — try cache
     final cached = prefs.getString(_kSwotCacheKey);
     final cachedTime = prefs.getInt(_kSwotCacheTimeKey);
     if (cached != null) {
@@ -286,83 +306,61 @@ class _FreeTierSWOTPreview extends StatelessWidget {
   }
 }
 
-/// A blurred, greyed representation of the locked content sections.
-/// Renders enough visual content to prove the data is real —
-/// but blurred so the student is motivated to unlock it.
+/// A blurred, greyed representation of the locked SWOT sections.
+/// ✅ FIX (Improvement #2): Replaced hardcoded fake insights
+///   ("Limited revision consistency", "High-weightage chapters untapped")
+///   with abstract redacted bars that convey "real data is here"
+///   without fabricating student-specific text that erodes trust.
 class _BlurredSection extends StatelessWidget {
   final bool isDark;
   const _BlurredSection({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final placeholders = [
-      ('⚠️', 'Weaknesses', LightColors.error, [
-        'Limited revision consistency\nLong gaps between review sessions',
-        'Subject imbalance detected\nOne subject receiving 3× more hours'
-      ]),
-      ('🌟', 'Opportunities', LightColors.secondary, [
-        'High-weightage chapters untapped\nOptimising could add 20+ marks',
-        'Revision efficiency window\nSpaced repetition not yet leveraged'
-      ]),
-      ('🔴', 'Threats', LightColors.tested, [
-        'Backlog accumulation risk\nSlowing pace vs. exam timeline',
-        'Test practice deficit\nMock test frequency below target'
-      ]),
+    final accent = isDark ? DarkColors.primary : LightColors.primary;
+
+    final sections = [
+      ('⚠️', 'Weaknesses',    LightColors.error),
+      ('🌟', 'Opportunities', LightColors.secondary),
+      ('🔴', 'Threats',       LightColors.tested),
     ];
 
     return ImageFiltered(
-      imageFilter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+      imageFilter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
       child: IgnorePointer(
         child: Column(
           children: [
-            ...placeholders.map((p) => Padding(
+            ...sections.map((s) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: p.$3.withOpacity(0.06),
+                  color: s.$3.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: p.$3.withOpacity(0.2)),
+                  border: Border.all(color: s.$3.withOpacity(0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Text(p.$1, style: const TextStyle(fontSize: 18)),
+                        Text(s.$1, style: const TextStyle(fontSize: 18)),
                         const SizedBox(width: 6),
-                        Text(p.$2,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                                color: p.$3, fontWeight: FontWeight.w700)),
+                        Text(s.$2,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: s.$3, fontWeight: FontWeight.w700)),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    ...p.$4.map((item) {
-                      final parts = item.split('\n');
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('• ${parts[0]}',
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w600)),
-                            if (parts.length > 1) ...[
-                              const SizedBox(height: 3),
-                              Text(parts[1],
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(height: 1.4)),
-                            ],
-                          ],
-                        ),
-                      );
-                    }),
+                    const SizedBox(height: 12),
+                    _RedactedBar(color: s.$3, widthFactor: 0.85),
+                    const SizedBox(height: 6),
+                    _RedactedBar(color: s.$3, widthFactor: 0.65),
+                    const SizedBox(height: 4),
                   ],
                 ),
               ),
             )),
-            // Action plan placeholder
+            // Action plan — redacted
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -376,43 +374,107 @@ class _BlurredSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('🎯 Action Plan', style: theme.textTheme.headlineSmall),
+                  Row(children: [
+                    const Text('🎯', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 6),
+                    Text('Action Plan',
+                        style: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(color: accent, fontWeight: FontWeight.w700)),
+                  ]),
                   const SizedBox(height: 12),
-                  ...[
-                    'Next 7 days: Complete all high-weightage pending chapters',
-                    'Next 14 days: Schedule 2 full mock tests this fortnight',
-                    'Next 30 days: Revision of entire completed syllabus',
-                  ].asMap().entries.map((e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 26, height: 26,
-                          decoration: BoxDecoration(
-                            color: LightColors.primary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Center(
-                            child: Text('${e.key + 1}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                    color: LightColors.primary)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(e.value,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(height: 1.4)),
-                        ),
-                      ],
-                    ),
-                  )),
+                  _RedactedActionRow(index: 1, accent: accent, widthFactor: 0.80),
+                  const SizedBox(height: 8),
+                  _RedactedActionRow(index: 2, accent: accent, widthFactor: 0.70),
+                  const SizedBox(height: 8),
+                  _RedactedActionRow(index: 3, accent: accent, widthFactor: 0.60),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Horizontal redacted bar — replaces fake text lines in blurred preview.
+class _RedactedBar extends StatelessWidget {
+  final Color color;
+  final double widthFactor;
+  const _RedactedBar({required this.color, required this.widthFactor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FractionallySizedBox(
+          widthFactor: widthFactor,
+          child: Container(
+            height: 10,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.28),
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        FractionallySizedBox(
+          widthFactor: widthFactor * 0.72,
+          child: Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Numbered action row with a redacted bar — replaces fake action text.
+class _RedactedActionRow extends StatelessWidget {
+  final int index;
+  final Color accent;
+  final double widthFactor;
+  const _RedactedActionRow({
+    required this.index, required this.accent, required this.widthFactor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 26, height: 26,
+          decoration: BoxDecoration(
+            color: accent.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Center(
+            child: Text('$index',
+                style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: accent,
+                )),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FractionallySizedBox(
+            widthFactor: widthFactor,
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: 9,
+              decoration: BoxDecoration(
+                color: accent.withOpacity(0.20),
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

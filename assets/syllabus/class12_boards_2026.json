@@ -1,0 +1,88 @@
+{
+  "exam": "Class 12 Boards (CBSE)",
+  "year": 2026,
+  "version": "1.0.0",
+  "subjects": [
+    {
+      "name": "Physics",
+      "chapters": [
+        { "name": "Electric Charges and Fields", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 42, "tags": ["conceptual", "formula", "derivation"] },
+        { "name": "Electrostatic Potential and Capacitance", "class": 12, "estimatedHours": 7, "weightage": 9, "difficulty": 3, "pyqCount": 48, "tags": ["formula", "numerical", "derivation"] },
+        { "name": "Current Electricity", "class": 12, "estimatedHours": 8, "weightage": 10, "difficulty": 3, "pyqCount": 55, "tags": ["formula", "numerical", "circuit"] },
+        { "name": "Moving Charges and Magnetism", "class": 12, "estimatedHours": 7, "weightage": 9, "difficulty": 3, "pyqCount": 46, "tags": ["formula", "derivation", "numerical"] },
+        { "name": "Magnetism and Matter", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 28, "tags": ["conceptual", "formula"] },
+        { "name": "Electromagnetic Induction", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 44, "tags": ["derivation", "formula", "numerical"] },
+        { "name": "Alternating Current", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 40, "tags": ["formula", "numerical", "phasor"] },
+        { "name": "Electromagnetic Waves", "class": 12, "estimatedHours": 3, "weightage": 4, "difficulty": 2, "pyqCount": 22, "tags": ["conceptual", "spectrum"] },
+        { "name": "Ray Optics and Optical Instruments", "class": 12, "estimatedHours": 8, "weightage": 10, "difficulty": 3, "pyqCount": 52, "tags": ["formula", "numerical", "derivation"] },
+        { "name": "Wave Optics", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 42, "tags": ["derivation", "formula", "interference"] },
+        { "name": "Dual Nature of Radiation and Matter", "class": 12, "estimatedHours": 5, "weightage": 6, "difficulty": 2, "pyqCount": 35, "tags": ["conceptual", "formula", "numerical"] },
+        { "name": "Atoms", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 30, "tags": ["conceptual", "formula"] },
+        { "name": "Nuclei", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 30, "tags": ["formula", "numerical", "conceptual"] },
+        { "name": "Semiconductor Electronics", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 2, "pyqCount": 38, "tags": ["conceptual", "circuit", "diagram"] },
+        { "name": "Communication Systems", "class": 12, "estimatedHours": 3, "weightage": 3, "difficulty": 1, "pyqCount": 18, "tags": ["conceptual", "diagram"] }
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "chapters": [
+        { "name": "The Solid State", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 3, "pyqCount": 36, "tags": ["conceptual", "numerical", "packing"] },
+        { "name": "Solutions", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 44, "tags": ["numerical", "formula", "colligative"] },
+        { "name": "Electrochemistry", "class": 12, "estimatedHours": 6, "weightage": 9, "difficulty": 3, "pyqCount": 48, "tags": ["formula", "numerical", "cell"] },
+        { "name": "Chemical Kinetics", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 44, "tags": ["formula", "numerical", "rate"] },
+        { "name": "Surface Chemistry", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 28, "tags": ["conceptual", "definition"] },
+        { "name": "General Principles and Processes of Isolation of Elements", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 25, "tags": ["conceptual", "process"] },
+        { "name": "The p-Block Elements", "class": 12, "estimatedHours": 7, "weightage": 8, "difficulty": 3, "pyqCount": 50, "tags": ["facts", "reactions", "properties"] },
+        { "name": "The d- and f-Block Elements", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 44, "tags": ["properties", "reactions", "conceptual"] },
+        { "name": "Coordination Compounds", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 46, "tags": ["nomenclature", "bonding", "isomerism"] },
+        { "name": "Haloalkanes and Haloarenes", "class": 12, "estimatedHours": 5, "weightage": 6, "difficulty": 3, "pyqCount": 38, "tags": ["reactions", "mechanism", "organic"] },
+        { "name": "Alcohols, Phenols and Ethers", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 3, "pyqCount": 40, "tags": ["reactions", "mechanism", "organic"] },
+        { "name": "Aldehydes, Ketones and Carboxylic Acids", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 48, "tags": ["reactions", "mechanism", "organic"] },
+        { "name": "Amines", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 3, "pyqCount": 32, "tags": ["reactions", "organic", "basicity"] },
+        { "name": "Biomolecules", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 28, "tags": ["conceptual", "structure", "biology"] },
+        { "name": "Polymers", "class": 12, "estimatedHours": 3, "weightage": 4, "difficulty": 2, "pyqCount": 22, "tags": ["classification", "uses", "conceptual"] },
+        { "name": "Chemistry in Everyday Life", "class": 12, "estimatedHours": 3, "weightage": 3, "difficulty": 1, "pyqCount": 18, "tags": ["conceptual", "application"] }
+      ]
+    },
+    {
+      "name": "Mathematics",
+      "chapters": [
+        { "name": "Relations and Functions", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 2, "pyqCount": 36, "tags": ["conceptual", "proof"] },
+        { "name": "Inverse Trigonometric Functions", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 30, "tags": ["formula", "numerical"] },
+        { "name": "Matrices", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 2, "pyqCount": 38, "tags": ["operations", "numerical"] },
+        { "name": "Determinants", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 44, "tags": ["numerical", "properties", "application"] },
+        { "name": "Continuity and Differentiability", "class": 12, "estimatedHours": 7, "weightage": 9, "difficulty": 3, "pyqCount": 50, "tags": ["conceptual", "formula", "numerical"] },
+        { "name": "Application of Derivatives", "class": 12, "estimatedHours": 7, "weightage": 10, "difficulty": 3, "pyqCount": 54, "tags": ["numerical", "maxmin", "formula"] },
+        { "name": "Integrals", "class": 12, "estimatedHours": 9, "weightage": 11, "difficulty": 4, "pyqCount": 60, "tags": ["formula", "technique", "numerical"] },
+        { "name": "Application of Integrals", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 3, "pyqCount": 38, "tags": ["area", "numerical", "graph"] },
+        { "name": "Differential Equations", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 44, "tags": ["formula", "technique", "numerical"] },
+        { "name": "Vector Algebra", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 2, "pyqCount": 38, "tags": ["formula", "numerical", "geometry"] },
+        { "name": "Three Dimensional Geometry", "class": 12, "estimatedHours": 6, "weightage": 8, "difficulty": 3, "pyqCount": 44, "tags": ["formula", "numerical", "geometry"] },
+        { "name": "Linear Programming", "class": 12, "estimatedHours": 4, "weightage": 5, "difficulty": 2, "pyqCount": 28, "tags": ["graphical", "numerical"] },
+        { "name": "Probability", "class": 12, "estimatedHours": 5, "weightage": 7, "difficulty": 3, "pyqCount": 40, "tags": ["formula", "bayes", "distribution"] }
+      ]
+    },
+    {
+      "name": "English Core",
+      "chapters": [
+        { "name": "Flamingo – Prose", "class": 12, "estimatedHours": 8, "weightage": 14, "difficulty": 2, "pyqCount": 60, "tags": ["reading", "comprehension", "summary"] },
+        { "name": "Flamingo – Poetry", "class": 12, "estimatedHours": 5, "weightage": 8, "difficulty": 2, "pyqCount": 36, "tags": ["annotation", "theme", "figure-of-speech"] },
+        { "name": "Vistas – Supplementary Reader", "class": 12, "estimatedHours": 6, "weightage": 10, "difficulty": 2, "pyqCount": 42, "tags": ["reading", "comprehension", "long-answer"] },
+        { "name": "Writing Skills – Notice, Letter, Report", "class": 12, "estimatedHours": 5, "weightage": 10, "difficulty": 2, "pyqCount": 40, "tags": ["writing", "format", "expression"] },
+        { "name": "Grammar – Error Correction, Gap-Fill, Transformation", "class": 12, "estimatedHours": 6, "weightage": 12, "difficulty": 3, "pyqCount": 55, "tags": ["grammar", "application", "editing"] },
+        { "name": "Reading Comprehension – Unseen Passage", "class": 12, "estimatedHours": 4, "weightage": 10, "difficulty": 2, "pyqCount": 35, "tags": ["reading", "inference", "vocabulary"] }
+      ]
+    },
+    {
+      "name": "Computer Science",
+      "chapters": [
+        { "name": "Python Revision Tour", "class": 12, "estimatedHours": 5, "weightage": 8, "difficulty": 2, "pyqCount": 30, "tags": ["programming", "syntax", "output"] },
+        { "name": "Functions in Python", "class": 12, "estimatedHours": 6, "weightage": 10, "difficulty": 3, "pyqCount": 38, "tags": ["programming", "recursion", "modules"] },
+        { "name": "File Handling", "class": 12, "estimatedHours": 5, "weightage": 8, "difficulty": 2, "pyqCount": 32, "tags": ["programming", "read-write", "binary"] },
+        { "name": "Data Structures – Stack and Queue", "class": 12, "estimatedHours": 6, "weightage": 10, "difficulty": 3, "pyqCount": 36, "tags": ["programming", "LIFO", "FIFO"] },
+        { "name": "Database and SQL", "class": 12, "estimatedHours": 7, "weightage": 12, "difficulty": 3, "pyqCount": 45, "tags": ["SQL", "queries", "normalization"] },
+        { "name": "Networking and Cyber Security", "class": 12, "estimatedHours": 4, "weightage": 8, "difficulty": 2, "pyqCount": 28, "tags": ["conceptual", "protocols", "security"] }
+      ]
+    }
+  ]
+}

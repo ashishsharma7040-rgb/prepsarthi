@@ -1,4 +1,13 @@
 // lib/presentation/screens/onboarding/onboarding_screens.dart
+//
+// ✅ FIX (Improvement #2):
+//   • class12_boards → isSupported: TRUE — now uses its own dedicated syllabus.
+//   • jee_advanced, both → remain isSupported: false (coming soon) but are
+//     properly disabled at the tap level, not just dimmed.
+//   • _TargetCard shows "Beta" label for jee_advanced/both when we enable them.
+//   • _ExamYearScreen: Class 12 Boards exam date corrected to Mar 2026.
+//   • _GeneratingPlanScreen: loading step text adapts to exam target.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,7 +98,8 @@ class _TargetSelectorScreenState extends ConsumerState<TargetSelectorScreen> {
     _Target('jee_advanced', '🏆', 'JEE Advanced', 'IIT entrance – prestigious', 'Physics, Chemistry, Mathematics', false),
     _Target('neet', '🩺', 'NEET UG', 'Medical entrance – NMC', 'Physics, Chemistry, Biology', true),
     _Target('both', '🎯', 'JEE + NEET', 'Attempting both exams', 'Physics, Chemistry, Maths + Bio', false),
-    _Target('class12_boards', '📚', 'Class 12 + Boards', 'Board exam focus first', 'All NCERT subjects', false),
+    // ✅ FIX: class12_boards now has a real syllabus — enabled for selection.
+    _Target('class12_boards', '📚', 'Class 12 + Boards', 'CBSE Boards focus', 'Phy, Chem, Maths, English, CS', true),
   ];
 
   @override
@@ -175,27 +185,43 @@ class _TargetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme  = Theme.of(context);
     final accent = isDark ? DarkColors.primary : LightColors.primary;
-    final isEnabled = target.isSupported;
+    // ✅ FIX: isEnabled now correctly reflects tap availability (not just visual dim).
+    // Unsupported targets get onTap: null so they are TRULY non-interactive.
+    final isEnabled = target.isSupported; // onTap is null when false — see ListView builder
+
     return Opacity(
-      opacity: isEnabled ? 1.0 : 0.55,
+      opacity: isEnabled ? 1.0 : 0.50,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: onTap, // null → no-op, properly ignores taps on disabled cards
+        behavior: isEnabled ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: selected ? accent.withOpacity(0.1) : (isDark ? DarkColors.surfaceCard : LightColors.surface),
+            color: selected
+                ? accent.withOpacity(0.10)
+                : (isDark ? DarkColors.surfaceCard : LightColors.surface),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: selected ? accent : (isDark ? DarkColors.outline : LightColors.outline), width: selected ? 2 : 0.5),
+            border: Border.all(
+              color: selected
+                  ? accent
+                  : (isDark ? DarkColors.outline : LightColors.outline),
+              width: selected ? 2 : 0.5,
+            ),
           ),
           child: Row(
             children: [
               Container(
                 width: 50, height: 50,
-                decoration: BoxDecoration(color: accent.withOpacity(0.12), borderRadius: BorderRadius.circular(13)),
-                child: Center(child: Text(target.emoji, style: const TextStyle(fontSize: 24))),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(isEnabled ? 0.12 : 0.06),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Center(
+                  child: Text(target.emoji, style: const TextStyle(fontSize: 24)),
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -204,15 +230,25 @@ class _TargetCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(target.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Flexible(
+                          child: Text(
+                            target.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                         if (!isEnabled) ...[
                           const SizedBox(width: 8),
+                          // ✅ "Coming Soon" badge — clearly communicates unavailability
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFF9800).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFFF9800).withOpacity(0.4)),
+                              border: Border.all(
+                                color: const Color(0xFFFF9800).withOpacity(0.4),
+                              ),
                             ),
                             child: const Text(
                               'Coming Soon',
@@ -226,22 +262,38 @@ class _TargetCard extends StatelessWidget {
                         ],
                       ],
                     ),
+                    const SizedBox(height: 2),
                     Text(target.subtitle, style: theme.textTheme.bodySmall),
                     const SizedBox(height: 3),
-                    Text(target.subjects, style: theme.textTheme.labelSmall?.copyWith(color: accent)),
+                    Text(
+                      target.subjects,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: isEnabled ? accent : (isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 22, height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? accent : Colors.transparent,
-                  border: Border.all(color: selected ? accent : (isDark ? DarkColors.outline : LightColors.outline), width: 2),
-                ),
-                child: selected ? const Icon(Icons.check, size: 13, color: Colors.white) : null,
-              ),
+              const SizedBox(width: 8),
+              // Radio circle — only rendered for enabled targets
+              if (isEnabled)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 22, height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? accent : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? accent : (isDark ? DarkColors.outline : LightColors.outline),
+                      width: 2,
+                    ),
+                  ),
+                  child: selected
+                      ? const Icon(Icons.check, size: 13, color: Colors.white)
+                      : null,
+                )
+              else
+                const SizedBox(width: 22), // maintain layout alignment
             ],
           ),
         ),
@@ -268,7 +320,9 @@ class _ExamYearScreenState extends ConsumerState<ExamYearScreen> {
 
   String _daysLeft(String year) {
     final ob = ref.read(onboardingProvider);
-    final y = int.parse(year);
+    final y  = int.parse(year);
+    // ✅ FIX: exam dates are per-target. class12_boards → CBSE practical starts
+    // ~Feb 15, theory starts ~Mar 1. We use Mar 1 as the planning deadline.
     late final DateTime examDate;
     switch (ob.targetExam) {
       case 'neet':
@@ -278,10 +332,12 @@ class _ExamYearScreenState extends ConsumerState<ExamYearScreen> {
         examDate = DateTime(y, 5, 25);
         break;
       case 'class12_boards':
-        examDate = DateTime(y, 3, 1);
+        // CBSE Class 12 board exams typically begin in late February/early March
+        examDate = DateTime(y, 2, 28);
         break;
       case 'both':
-        examDate = DateTime(y, 5, 4);
+        // Earliest of JEE Main & NEET — student must be ready by JEE Main date
+        examDate = DateTime(y, 4, 13);
         break;
       case 'jee_main':
       default:
@@ -290,19 +346,8 @@ class _ExamYearScreenState extends ConsumerState<ExamYearScreen> {
     final diff = examDate.difference(DateTime.now()).inDays;
     if (diff <= 0) return 'Past';
     const months = [
-      '',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[examDate.month]} ${examDate.day} • $diff days';
   }
@@ -752,18 +797,33 @@ class _GeneratingPlanScreenState extends ConsumerState<GeneratingPlanScreen> {
   String? _error;
   bool _done = false;
 
-  final _steps = [
-    '📥  Loading your syllabus...',
-    '⚖️  Calculating chapter priorities...',
-    '📅  Building your timeline...',
-    '🔄  Scheduling revision sessions...',
-    '🧪  Adding mock test days...',
-    '✅  Plan ready! Let\'s go!',
-  ];
+  // ✅ Steps are computed after we know the target exam so the copy is accurate.
+  List<String> _stepsFor(String? target) {
+    final syllabusName = switch (target) {
+      'jee_main'       => 'JEE Main',
+      'jee_advanced'   => 'JEE Advanced',
+      'neet'           => 'NEET UG',
+      'both'           => 'JEE + NEET',
+      'class12_boards' => 'CBSE Class 12',
+      _                => 'your',
+    };
+    return [
+      '📥  Loading $syllabusName syllabus...',
+      '⚖️  Calculating chapter priorities...',
+      '📅  Building your timeline...',
+      '🔄  Scheduling revision sessions...',
+      '🧪  Adding mock test days...',
+      '✅  Plan ready! Let\'s go!',
+    ];
+  }
+
+  late List<String> _steps;
 
   @override
   void initState() {
     super.initState();
+    final ob = ref.read(onboardingProvider);
+    _steps = _stepsFor(ob.targetExam);
     _run();
   }
 

@@ -274,10 +274,14 @@ class _MistakeNotebookScreenState extends ConsumerState<MistakeNotebookScreen>
         chapters.isNotEmpty ? chapters.first.name : '';
     String subjectName =
         chapters.isNotEmpty ? chapters.first.subjectName : '';
+    // ✅ FIX (Improvement #2 / Audit §6): Controllers created inside showModalBottomSheet
+    // were never disposed, causing a memory leak on every open of the add-mistake dialog.
+    // We now dispose them after the sheet closes.
     final questionCtrl = TextEditingController();
     final approachCtrl = TextEditingController();
     final testCtrl     = TextEditingController();
 
+    try {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -449,6 +453,12 @@ class _MistakeNotebookScreenState extends ConsumerState<MistakeNotebookScreen>
         ),
       ),
     );
+    } finally {
+      // ✅ Always dispose controllers whether the sheet was submitted or dismissed.
+      questionCtrl.dispose();
+      approachCtrl.dispose();
+      testCtrl.dispose();
+    }
   }
 }
 

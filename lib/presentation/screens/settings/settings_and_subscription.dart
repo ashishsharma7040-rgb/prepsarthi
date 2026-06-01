@@ -241,10 +241,18 @@ class SettingsScreen extends ConsumerWidget {
     );
     if (ok == true) {
       final targetExam = ref.read(authProvider).user?.targetExam;
-      await SyllabusLoader.safeReload(targetExam: targetExam);
+      // ✅ FIX: Use SafeReloadResult to show meaningful feedback — how many
+      // chapters were added or updated — instead of a generic "reloaded" toast.
+      final result = await SyllabusLoader.safeReload(targetExam: targetExam);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Syllabus reloaded')),
+          SnackBar(
+            content: Text('✅ ${result.message}'),
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          ),
         );
       }
     }

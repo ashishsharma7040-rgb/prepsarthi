@@ -206,8 +206,19 @@ Return this EXACT JSON structure (no other text):
 Provide 3 items per SWOT category, all specific to this student's data.
 ''';
 
-    // 6-hour cooldown: serve cached report if refresh is too soon
-    // (The calling screen checks remainingCooldown() and shows the timer in UI)
+    // ✅ FIX: Cooldown is now ENFORCED here, not just available for UI to check.
+    // If called before the 6-hour window expires, the call is a no-op and
+    // the caller should display the cached report from SharedPreferences.
+    // The UI _CooldownRefreshButton already reads remainingCooldown() — this
+    // enforcement prevents backend calls even if the UI somehow bypasses the check.
+    final cooldownExpired = await _isCooldownExpired(_swotCooldownKey);
+    if (!cooldownExpired) {
+      // Return the cached/fallback report — caller should already be showing
+      // the cached version; this just prevents a redundant API call.
+      debugPrint('[GeminiService] SWOT cooldown active — skipping API call');
+      return SWOTReport.fromJson(_swotFallback);
+    }
+
     final json = await _callWithRetry(prompt, fallback: _swotFallback);
     await _stampFetchTime(_swotCooldownKey);
     return SWOTReport.fromJson(json);
@@ -269,6 +280,13 @@ Return this EXACT JSON (no other text):
   "motivational_insight": "string (1 powerful observation about their data)"
 }
 ''';
+
+    // ✅ FIX: Pattern cooldown enforced at service level (mirrors SWOT fix).
+    final patternCooldownExpired = await _isCooldownExpired(_patternCooldownKey);
+    if (!patternCooldownExpired) {
+      debugPrint('[GeminiService] Pattern cooldown active — skipping API call');
+      return PatternReport.fromJson(_patternFallback);
+    }
 
     final json = await _callWithRetry(prompt, fallback: _patternFallback);
     await _stampFetchTime(_patternCooldownKey);
