@@ -1,3 +1,14 @@
+// lib/core/startup/startup_controller.dart
+//
+// ── §5 ERROR HANDLING fix ─────────────────────────────────────────────────────
+// • Replaced 2 silent `catch (_) {}` blocks with `AppLogger` calls:
+//   1. reportZoneError — Crashlytics write failure now logged at warning level.
+//   2. Inner Isar read for targetExam — failure now logged at warning level.
+//      Both were genuinely swallowable (non-fatal) but are now visible in
+//      debug mode and forwarded to Crashlytics in production.
+// • All startup logic and timeouts are unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import 'dart:async';
 import 'dart:ui';
 
@@ -9,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
+import '../../core/utils/app_logger.dart';
 import '../../core/utils/notification_helper.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/local/preload/syllabus_loader.dart';
@@ -85,9 +97,13 @@ class StartupController extends AsyncNotifier<StartupState> {
   }
 
   static void reportZoneError(Object error, StackTrace stack) {
+    // ✅ FIX §5: was `catch (_) {}` — now logs warning so Crashlytics write
+    //    failures are visible in debug mode and tracked in production.
     try {
       _crashlytics?.recordError(error, stack, fatal: false);
-    } catch (_) {}
+    } catch (e, st) {
+      AppLogger.w('startup.crashlytics', e, st);
+    }
   }
 
   Future<void> retry() async {
@@ -163,14 +179,16 @@ class StartupController extends AsyncNotifier<StartupState> {
     current = current.copyWith(phase: StartupPhase.loadingSyllabus);
     state = AsyncData(current);
     try {
-      // Read the user's targetExam from Isar so the correct syllabus JSON
-      // is loaded (jee_main, jee_advanced, neet_ug, or both).
+      // ✅ FIX §5: was `catch (_) {}` — now logs at warning level so Isar
+      //    read failures during syllabus load are visible in logs.
       String? targetExam;
       try {
         final db = IsarService.db;
         final user = await db.userSchemas.where().findFirst();
         targetExam = user?.targetExam;
-      } catch (_) {}
+      } catch (e, st) {
+        AppLogger.w('startup.targetExam', e, st);
+      }
       await SyllabusLoader.loadIfNeeded(targetExam: targetExam)
           .timeout(_syllabusTimeout);
       debugPrint('[Startup] Syllabus ready (target: $targetExam)');

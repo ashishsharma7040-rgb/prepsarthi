@@ -9,6 +9,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/startup/startup_controller.dart';
+import 'core/utils/app_logger.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/purchase_repository.dart';
 import 'presentation/providers/all_providers.dart';
@@ -295,7 +296,9 @@ class _MainAppState extends ConsumerState<_MainApp>
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_kPendingPurchaseKey);
-    } catch (_) {}
+    } catch (e, st) {
+      AppLogger.w('app.clearPendingPurchase', e, st);
+    }
   }
 
   void _showVerificationPendingSnackbar() {

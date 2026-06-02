@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon foreground layer.
+  Renders the PrepSarthi "P" lettermark in white, centered within the 108×108dp canvas.
+  The safe zone is the inner 72×72dp — artwork is kept within that to avoid clipping
+  by rounded-corner / circle launchers.
+
+  IMPORTANT: This is a PLACEHOLDER foreground.
+  Replace this file with your actual Figma-exported vector once it's ready.
+  The background gradient (#00C4B4) already matches your brand; only this layer
+  needs to change.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!--
+      White "P" lettermark centered in the 72×72dp safe zone.
+      Safe zone starts at (18, 18) and ends at (90, 90).
+      Center of safe zone: (54, 54).
+
+      The path below draws a stylised bold "P":
+      - Left vertical bar: x=38, y=26 → y=82
+      - Rounded cap at top: extends to x=66, with a circular bump for the bowl
+    -->
+
+    <!-- Left vertical stroke -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+          M38,26 L46,26 L46,82 L38,82 Z
+        " />
+
+    <!-- Bowl of the P (semicircle cap) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+          M46,26
+          L62,26
+          A16,16 0 0,1 62,58
+          L46,58 Z
+        " />
+
+    <!-- Inner cutout to make hollow bowl (counter-form) -->
+    <path
+        android:fillColor="#00C4B4"
+        android:pathData="
+          M50,32
+          L60,32
+          A10,10 0 0,1 60,52
+          L50,52 Z
+        " />
+
+</vector>

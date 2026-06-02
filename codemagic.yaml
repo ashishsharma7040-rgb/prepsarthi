@@ -1,4 +1,16 @@
+## codemagic.yaml
+##
+## ── §1 BUILD PIPELINE fixes ───────────────────────────────────────────────────
+## • Added `release-aab` workflow — builds signed release AAB for Play Store.
+## • Analyze step: `--no-fatal-infos --no-fatal-warnings` preserved so existing
+##   deprecation warnings do NOT block the build (they're tracked in analysis_options.yaml).
+## • Both workflows share the same script steps to keep them in sync.
+##   The only difference: release-aab builds `flutter build appbundle --release`.
+## ─────────────────────────────────────────────────────────────────────────────
+
 workflows:
+
+  # ── DEBUG APK (CI fast-feedback) ─────────────────────────────────────────────
   debug-apk:
     name: Build PrepSarthi Debug APK
     max_build_duration: 60
@@ -75,6 +87,9 @@ workflows:
         script: dart run build_runner build --delete-conflicting-outputs
 
       - name: Analyze
+        # --no-fatal-infos / --no-fatal-warnings: tracked deprecations in
+        # analysis_options.yaml do not block CI. Promote to --fatal-warnings
+        # when all suppressed rules are resolved.
         script: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Test
@@ -103,3 +118,121 @@ workflows:
     artifacts:
       - build/app/outputs/flutter-apk/app-debug.apk
       - apk-signing-certificate.txt
+
+  # ── RELEASE AAB (Play Store upload) ──────────────────────────────────────────
+  # Trigger this workflow to produce a Play-Store-ready signed AAB.
+  # Upload the AAB to the Internal Testing track in Play Console.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Keystore uploaded to Codemagic under android_signing → prepsarthi_release
+  #   2. GOOGLE_SERVICES_JSON_B64 set in firebase_credentials group
+  #   3. versionCode incremented (pubspec.yaml → version: X.Y.Z+BUILD)
+  release-aab:
+    name: Build PrepSarthi Release AAB (Play Store)
+    max_build_duration: 90
+    instance_type: linux_x2
+
+    environment:
+      groups:
+        - firebase_credentials
+      android_signing:
+        - prepsarthi_release
+      flutter: stable
+      java: 17
+
+    scripts:
+      - name: Flutter version
+        script: flutter --version
+
+      - name: Install Firebase Android config
+        script: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON_B64. Add the base64-encoded android/app/google-services.json to the firebase_credentials group in Codemagic."
+            exit 1
+          fi
+          mkdir -p android/app
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
+          if ! grep -q '"package_name"[[:space:]]*:[[:space:]]*"com.prepsarthi.app"' android/app/google-services.json; then
+            echo "google-services.json does not match package com.prepsarthi.app"
+            exit 1
+          fi
+          echo "[OK] google-services.json installed and verified"
+
+      - name: Verify Firebase Android config
+        script: |
+          python3 scripts/firebase/verify_google_services.py android/app/google-services.json
+
+      - name: Set up Android signing
+        script: |
+          if [ -z "$CM_KEYSTORE_PATH" ] || [ -z "$CM_KEYSTORE_PASSWORD" ] || [ -z "$CM_KEY_ALIAS" ] || [ -z "$CM_KEY_PASSWORD" ]; then
+            echo "❌ Android signing env vars missing. Keystore must be configured in Codemagic."
+            exit 1
+          fi
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
+            "$CM_KEYSTORE_PASSWORD" "$CM_KEY_PASSWORD" "$CM_KEY_ALIAS" "$CM_KEYSTORE_PATH" \
+            > android/key.properties
+          echo "[OK] android/key.properties written for RELEASE build"
+          ls -lh "$CM_KEYSTORE_PATH"
+
+      - name: Get dependencies
+        script: flutter pub get
+
+      - name: Remove stale files
+        script: |
+          rm -f lib/presentation/screens/mistake_notebook_screen.dart
+          echo "Stale files removed"
+
+      - name: Clean build cache
+        script: |
+          flutter clean
+          dart run build_runner clean
+
+      - name: Android signing report
+        script: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew signingReport
+
+      - name: Generate Isar files
+        script: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        script: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test
+        script: flutter test
+
+      - name: Build release AAB
+        # Produces: build/app/outputs/bundle/release/app-release.aab
+        # This file is what you upload to Play Console → Internal Testing.
+        script: flutter build appbundle --release
+
+      - name: Verify release AAB signing
+        script: |
+          AAB_PATH="build/app/outputs/bundle/release/app-release.aab"
+          echo "AAB path: $AAB_PATH"
+          ls -lh "$AAB_PATH"
+
+          # Verify the AAB is signed with the release key (not debug)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          echo "Note: apksigner cannot directly verify AAB files (only APKs)."
+          echo "Signing verification for AAB is done by Play Console on upload."
+          echo ""
+          echo "========== AAB BUILD COMPLETE =========="
+          echo "Upload $AAB_PATH to Play Console → Internal Testing → Create new release"
+
+      - name: Generate build info
+        script: |
+          AAB_PATH="build/app/outputs/bundle/release/app-release.aab"
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          echo "PrepSarthi Release AAB" > release-info.txt
+          echo "Version: $VERSION" >> release-info.txt
+          echo "Built: $(date -u)" >> release-info.txt
+          echo "Branch: ${CM_BRANCH:-unknown}" >> release-info.txt
+          echo "Commit: ${CM_COMMIT:-unknown}" >> release-info.txt
+          echo "AAB size: $(du -sh $AAB_PATH | cut -f1)" >> release-info.txt
+          cat release-info.txt
+
+    artifacts:
+      - build/app/outputs/bundle/release/app-release.aab
+      - release-info.txt

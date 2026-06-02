@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon background layer.
+  PrepSarthi brand: teal gradient (#00C4B4 → #009688).
+  This fills the full 108×108dp canvas including the "safe zone" bleed area.
+  The foreground layer (your logo/symbol) should stay within the 72×72dp safe zone.
+
+  To replace with a custom gradient later, use:
+  <gradient android:startColor="..." android:endColor="..." android:angle="135" />
+  inside a <shape>. Requires API 24+, which PrepSarthi already targets (minSdk 24).
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="135"
+        android:startColor="#00C4B4"
+        android:centerColor="#009E8E"
+        android:endColor="#009688"
+        android:type="linear" />
+</shape>
