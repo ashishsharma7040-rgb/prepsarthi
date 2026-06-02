@@ -15,8 +15,6 @@
 
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
-import '../../data/local/isar/schemas/schemas.dart';
-import '../../data/local/isar/schemas/readiness_snapshot_schema.dart';
 
 // ── ReadinessScore value object ────────────────────────────────────────────────
 class ReadinessScore {

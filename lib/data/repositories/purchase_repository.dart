@@ -21,7 +21,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import '../local/isar/isar_service.dart';
-import '../local/isar/schemas/user_schema.dart';
 
 // ── Product ID constants — single source of truth ────────────────────────────
 //

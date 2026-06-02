@@ -135,7 +135,7 @@ class NotificationHelper {
       _notifDetails(
           title: '🔄 Revision Due – $chapterName',
           body: body,
-          payload: '${payloadRevisionDue}:$chapterName',
+          payload: '$payloadRevisionDue:$chapterName',
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:

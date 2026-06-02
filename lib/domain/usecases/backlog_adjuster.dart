@@ -7,8 +7,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
-import '../../data/local/isar/schemas/plan_entry_schema.dart';
-import '../../data/local/isar/schemas/user_schema.dart';
 
 class BacklogAdjuster {
   /// Checks if student missed study days and reschedules pending entries.
@@ -40,7 +38,7 @@ class BacklogAdjuster {
           missedDays: missedDays,
           rescheduledCount: 0,
           needsRegeneration: true,
-          message: 'You missed ${missedDays} days. Consider regenerating your plan for a fresh start.',
+          message: 'You missed $missedDays days. Consider regenerating your plan for a fresh start.',
         );
       }
 

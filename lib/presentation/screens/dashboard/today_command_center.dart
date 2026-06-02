@@ -401,10 +401,15 @@ class _ExamModeCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     Color phaseColor;
-    if (mode.daysLeft <= 7) phaseColor = LightColors.error;
-    else if (mode.daysLeft <= 30) phaseColor = const Color(0xFFFF9800);
-    else if (mode.daysLeft <= 90) phaseColor = LightColors.primary;
-    else phaseColor = LightColors.learned;
+    if (mode.daysLeft <= 7) {
+      phaseColor = LightColors.error;
+    } else if (mode.daysLeft <= 30) {
+      phaseColor = const Color(0xFFFF9800);
+    } else if (mode.daysLeft <= 90) {
+      phaseColor = LightColors.primary;
+    } else {
+      phaseColor = LightColors.learned;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -857,9 +862,13 @@ class _ExamModeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color color;
-    if (mode.daysLeft <= 7) color = LightColors.error;
-    else if (mode.daysLeft <= 30) color = const Color(0xFFFF9800);
-    else color = LightColors.primary;
+    if (mode.daysLeft <= 7) {
+      color = LightColors.error;
+    } else if (mode.daysLeft <= 30) {
+      color = const Color(0xFFFF9800);
+    } else {
+      color = LightColors.primary;
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

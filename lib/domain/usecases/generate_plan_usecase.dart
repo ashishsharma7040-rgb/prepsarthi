@@ -14,7 +14,6 @@
 import 'dart:math' as math;
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
-import '../../data/local/isar/schemas/schemas.dart';
 
 class GeneratePlanUseCase {
   // ── Configurable constants (documented) ────────────────────────────────────
@@ -77,14 +76,14 @@ class GeneratePlanUseCase {
 
     DateTime cursor = today;
 
-    bool _isBlackout(DateTime d) => blackoutSet.contains(d);
-    bool _isBufferDay(int count) => count > 0 && count % _bufferDayInterval == 0;
-    bool _isMockDay(DateTime d, int count) =>
+    bool isBlackout(DateTime d) => blackoutSet.contains(d);
+    bool isBufferDay(int count) => count > 0 && count % _bufferDayInterval == 0;
+    bool isMockDay(DateTime d, int count) =>
         d.weekday == DateTime.sunday && count >= _mockTestStartWeek * 7;
 
-    DateTime _nextValidDay(DateTime from) {
+    DateTime nextValidDay(DateTime from) {
       var d = from.add(const Duration(days: 1));
-      while (_isBlackout(d)) {
+      while (isBlackout(d)) {
         d = d.add(const Duration(days: 1));
       }
       return d;
@@ -99,8 +98,8 @@ class GeneratePlanUseCase {
         if (cursor.isAfter(examDate.subtract(const Duration(days: 1)))) break;
 
         // Skip buffer and mock days for new chapter learning
-        if (_isBufferDay(studyDayCount) || _isMockDay(cursor, studyDayCount) || _isBlackout(cursor)) {
-          cursor = _nextValidDay(cursor);
+        if (isBufferDay(studyDayCount) || isMockDay(cursor, studyDayCount) || isBlackout(cursor)) {
+          cursor = nextValidDay(cursor);
           studyDayCount++;
           continue;
         }
@@ -110,7 +109,7 @@ class GeneratePlanUseCase {
         final available = dailyStudyHours - used;
 
         if (available <= 0.05) {
-          cursor = _nextValidDay(cursor);
+          cursor = nextValidDay(cursor);
           studyDayCount++;
           continue;
         }
@@ -131,7 +130,7 @@ class GeneratePlanUseCase {
         remaining -= chunk;
 
         if ((dailyStudyHours - (dailyBudget[dateKey] ?? 0)) < 0.05) {
-          cursor = _nextValidDay(cursor);
+          cursor = nextValidDay(cursor);
           studyDayCount++;
         }
       }
@@ -150,7 +149,7 @@ class GeneratePlanUseCase {
 
     while (mockCursor.isBefore(examDate)) {
       final dateKey = DateTime(mockCursor.year, mockCursor.month, mockCursor.day);
-      if (!_isBlackout(dateKey)) {
+      if (!isBlackout(dateKey)) {
         entries.add(PlanEntrySchema()
           ..chapterName = 'Mock Test – ${subjects[subjectRotation % subjects.length]}'
           ..subjectName = subjects[subjectRotation % subjects.length]

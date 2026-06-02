@@ -8,8 +8,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
-import '../../data/local/isar/schemas/user_settings_schema.dart';
 import '../../core/utils/notification_helper.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════

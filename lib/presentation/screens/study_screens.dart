@@ -11,7 +11,6 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../data/local/isar/isar_service.dart';
-import '../../data/local/isar/schemas/chapter_schema.dart';
 import '../providers/all_providers.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 

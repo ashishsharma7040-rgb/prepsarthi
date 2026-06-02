@@ -8,7 +8,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/isar/isar_service.dart';
-import '../../../data/local/isar/schemas/chapter_schema.dart';
 import '../../providers/all_providers.dart';
 
 const _masteryLabels = [
@@ -70,12 +69,14 @@ class _ChapterMasteryScreenState
       ..sort();
 
     var filtered = chapters.where((c) {
-      if (_subjectFilter != null && c.subjectName != _subjectFilter)
+      if (_subjectFilter != null && c.subjectName != _subjectFilter) {
         return false;
-      if (_showWeakOnly && !c.isWeakChapter) return false;
+      }
+      if (_showWeakOnly && !c.isWeakChapter) { return false; }
       if (_searchQuery.isNotEmpty &&
-          !c.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+          !c.name.toLowerCase().contains(_searchQuery.toLowerCase())) {
         return false;
+      }
       return true;
     }).toList();
 

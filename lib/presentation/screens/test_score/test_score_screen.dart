@@ -12,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import 'package:isar/isar.dart';
 import '../../../data/local/isar/isar_service.dart';
-import '../../../data/local/isar/schemas/mock_test_schema.dart';
 import '../../providers/all_providers.dart';
 
 // ─── SharedPrefs migration key ──────────────────────────────────────────────

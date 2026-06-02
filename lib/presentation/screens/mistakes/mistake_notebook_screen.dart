@@ -15,7 +15,6 @@ import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/isar/isar_service.dart';
-import '../../../data/local/isar/schemas/mistake_entry_schema.dart';
 import '../../providers/all_providers.dart';
 
 // ─── Legacy SharedPrefs migration key ────────────────────────────────────────
@@ -199,9 +198,9 @@ class _MistakeNotebookScreenState extends ConsumerState<MistakeNotebookScreen>
           Scaffold(body: Center(child: Text('Error: $e'))),
       data: (mistakes) {
         final filtered = mistakes.where((e) {
-          if (!_showResolved && e.isResolved) return false;
+          if (!_showResolved && e.isResolved) { return false; }
           if (_filterType != null &&
-              _typeFromIndex(e.mistakeTypeIndex) != _filterType) return false;
+              _typeFromIndex(e.mistakeTypeIndex) != _filterType) { return false; }
           return true;
         }).toList();
 

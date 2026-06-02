@@ -14,7 +14,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/isar/schemas/plan_entry_schema.dart';
-import '../../../domain/usecases/readiness_score.dart';
 import '../../../router/app_router.dart';
 import '../../providers/all_providers.dart';
 import '../../providers/analytics_providers.dart';

@@ -17,7 +17,6 @@ import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
 import '../../core/firebase/firebase_diagnostics.dart';
 import '../local/isar/isar_service.dart';
-import '../local/isar/schemas/schemas.dart';
 
 class AuthRepository {
   static final _auth         = FirebaseAuth.instance;

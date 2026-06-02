@@ -13,13 +13,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
-import '../../data/local/isar/schemas/user_schema.dart';
-import '../../data/local/isar/schemas/chapter_schema.dart';
-import '../../data/local/isar/schemas/plan_entry_schema.dart';
-import '../../data/local/isar/schemas/study_log_schema.dart';
-import '../../data/local/isar/schemas/revision_schedule_schema.dart';
-import '../../data/local/isar/schemas/user_settings_schema.dart';
-import '../../data/local/isar/schemas/achievement_schema.dart';
 import '../../core/utils/notification_helper.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 
@@ -354,8 +347,8 @@ class PlanNotifier extends Notifier<PlanState> {
             chapter.masteryLevel < 3) {
           chapter.masteryLevel = 3; // Questions Practiced
           chapter.status = 'learned';
-          if (chapter.firstLearnedDate == null) {
-            chapter.firstLearnedDate = DateTime.now();
+          chapter.firstLearnedDate ??= DateTime.now();
+          {
             // Auto-schedule spaced revisions when chapter completes
             await GeneratePlanUseCase.scheduleRevisions(
               chapterName: chapter.name,
@@ -543,9 +536,7 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
         // First learn — advance to at least masteryLevel 3
         if (chapter.masteryLevel < 3) chapter.masteryLevel = 3;
         chapter.status = 'learned';
-        if (chapter.firstLearnedDate == null) {
-          chapter.firstLearnedDate = DateTime.now();
-        }
+        chapter.firstLearnedDate ??= DateTime.now();
       }
       if (activityTag == 'pyq') {
         // Bump PYQ progress tracker
@@ -574,8 +565,9 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
           final diff = lastDay != null ? today.difference(lastDay).inDays : 0;
           user.currentStreak = (diff == 1) ? user.currentStreak + 1 : 1;
           user.lastStudyDate = today;
-          if (user.currentStreak > user.longestStreak)
+          if (user.currentStreak > user.longestStreak) {
             user.longestStreak = user.currentStreak;
+          }
           await db2.writeTxn(() async => db2.userSchemas.put(user));
           if ([3, 7, 14, 30, 60, 100].contains(user.currentStreak)) {
             await NotificationHelper.showStreakNotification(user.currentStreak);

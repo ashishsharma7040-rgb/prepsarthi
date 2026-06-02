@@ -260,7 +260,7 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
   void _configureTabs(List<String> exams) {
     final previousFilter = _selectedFilter;
     final initialIndex =
-        exams.indexOf(previousFilter) >= 0 ? exams.indexOf(previousFilter) : 0;
+        exams.contains(previousFilter) ? exams.indexOf(previousFilter) : 0;
 
     if (_tabLabels.isNotEmpty) {
       _tabController.removeListener(_handleTabChange);

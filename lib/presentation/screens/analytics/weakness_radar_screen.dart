@@ -8,7 +8,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/isar/isar_service.dart';
-import '../../../data/local/isar/schemas/chapter_schema.dart';
 import '../../providers/all_providers.dart';
 import '../../providers/analytics_providers.dart';
 
@@ -233,10 +232,15 @@ class _SubjectVulnerabilityCard extends StatelessWidget {
             final color = _subjectColor(e.key);
             final pct = (e.value * 100).round();
             String label;
-            if (e.value >= 0.7) label = 'Critical';
-            else if (e.value >= 0.5) label = 'High Risk';
-            else if (e.value >= 0.3) label = 'Moderate';
-            else label = 'Good';
+            if (e.value >= 0.7) {
+              label = 'Critical';
+            } else if (e.value >= 0.5) {
+              label = 'High Risk';
+            } else if (e.value >= 0.3) {
+              label = 'Moderate';
+            } else {
+              label = 'Good';
+            }
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),

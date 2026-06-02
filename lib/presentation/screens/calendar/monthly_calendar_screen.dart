@@ -7,7 +7,6 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/isar/isar_service.dart';
-import '../../../data/local/isar/schemas/schemas.dart';
 
 // Provider that loads plan entries for a given month range
 final _calendarEntriesProvider =

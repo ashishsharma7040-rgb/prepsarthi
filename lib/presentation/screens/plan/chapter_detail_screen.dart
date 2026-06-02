@@ -146,7 +146,7 @@ class _ChapterDetailScreenState extends ConsumerState<ChapterDetailScreen> {
                         '${chapter.pyqCount}', accent, isDark),
                     const SizedBox(width: 10),
                     _StatBox('🎯', 'Difficulty',
-                        '${'★' * chapter.difficulty}', accent, isDark),
+                        '★' * chapter.difficulty, accent, isDark),
                   ],
                 ).animate().fadeIn(duration: 400.ms),
 

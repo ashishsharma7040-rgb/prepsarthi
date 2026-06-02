@@ -13,8 +13,6 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
 import '../isar/isar_service.dart';
-import '../isar/schemas/chapter_schema.dart';
-import '../isar/schemas/achievement_schema.dart';
 
 // ── Asset paths ────────────────────────────────────────────────────────────
 const _jeeMainAsset     = 'assets/syllabus/jee_main_2026.json';

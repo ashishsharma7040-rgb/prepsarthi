@@ -30,7 +30,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 
 // ─── A11yTappable ─────────────────────────────────────────────────────────────
 /// Wraps any tappable widget with a semantic label TalkBack/VoiceOver can read.
