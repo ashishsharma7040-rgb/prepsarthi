@@ -1,0 +1,1134 @@
+{
+  "source": "ca_final",
+  "year": 2026,
+  "authority": "ICAI",
+  "scheme": "New Scheme of Education and Training (NSET)",
+  "subjects": [
+    {
+      "name": "Paper 1: Financial Reporting",
+      "icon": "\ud83d\udcca",
+      "group": 1,
+      "paperNo": 1,
+      "totalMarks": 100,
+      "chapters": [
+        {
+          "name": "Framework for Preparation & Presentation of Financial Statements",
+          "estimatedHours": 6,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "conceptual",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Ind AS 1 \u2013 Presentation of Financial Statements",
+          "estimatedHours": 8,
+          "weightage": 8,
+          "difficulty": 3,
+          "pyqCount": 28,
+          "tags": [
+            "high-mark",
+            "application"
+          ]
+        },
+        {
+          "name": "Ind AS 7 \u2013 Statement of Cash Flows",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 24,
+          "tags": [
+            "numerical",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Ind AS 8, 10 \u2013 Accounting Policies, Events After Reporting Date",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 16,
+          "tags": [
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Ind AS 2 \u2013 Inventories",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 2,
+          "pyqCount": 12,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 16 \u2013 Property, Plant and Equipment",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 24,
+          "tags": [
+            "high-mark",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 38 \u2013 Intangible Assets",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 16,
+          "tags": [
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Ind AS 40 \u2013 Investment Property & Ind AS 41 \u2013 Agriculture",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 2,
+          "pyqCount": 12,
+          "tags": [
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Ind AS 23 \u2013 Borrowing Costs",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 2,
+          "pyqCount": 12,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 36 \u2013 Impairment of Assets",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 4,
+          "pyqCount": 20,
+          "tags": [
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 37 \u2013 Provisions, Contingent Liabilities and Contingent Assets",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 16,
+          "tags": [
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Ind AS 115 \u2013 Revenue from Contracts with Customers",
+          "estimatedHours": 10,
+          "weightage": 10,
+          "difficulty": 4,
+          "pyqCount": 34,
+          "tags": [
+            "high-mark",
+            "tough",
+            "application"
+          ]
+        },
+        {
+          "name": "Ind AS 20 \u2013 Government Grants",
+          "estimatedHours": 3,
+          "weightage": 3,
+          "difficulty": 2,
+          "pyqCount": 10,
+          "tags": [
+            "easy"
+          ]
+        },
+        {
+          "name": "Ind AS 12 \u2013 Income Taxes",
+          "estimatedHours": 8,
+          "weightage": 8,
+          "difficulty": 4,
+          "pyqCount": 28,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 19 \u2013 Employee Benefits",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 24,
+          "tags": [
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 102 \u2013 Share-Based Payments",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 16,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 32, 107, 109 \u2013 Financial Instruments",
+          "estimatedHours": 12,
+          "weightage": 10,
+          "difficulty": 5,
+          "pyqCount": 38,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 21 \u2013 Effects of Changes in Foreign Exchange Rates",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 20,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 24 \u2013 Related Party Disclosures",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 2,
+          "pyqCount": 12,
+          "tags": [
+            "memory"
+          ]
+        },
+        {
+          "name": "Ind AS 33 \u2013 Earnings Per Share",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 16,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Ind AS 103 \u2013 Business Combinations",
+          "estimatedHours": 9,
+          "weightage": 9,
+          "difficulty": 5,
+          "pyqCount": 30,
+          "tags": [
+            "high-mark",
+            "tough",
+            "application"
+          ]
+        },
+        {
+          "name": "Ind AS 110, 111, 112 \u2013 Consolidation & Joint Arrangements",
+          "estimatedHours": 14,
+          "weightage": 12,
+          "difficulty": 5,
+          "pyqCount": 42,
+          "tags": [
+            "high-mark",
+            "tough",
+            "consolidation"
+          ]
+        },
+        {
+          "name": "Ind AS 27, 28 \u2013 Separate & Associate Financial Statements",
+          "estimatedHours": 8,
+          "weightage": 8,
+          "difficulty": 4,
+          "pyqCount": 26,
+          "tags": [
+            "tough",
+            "consolidation"
+          ]
+        },
+        {
+          "name": "Accounts of Banking & Insurance Companies",
+          "estimatedHours": 8,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 24,
+          "tags": [
+            "application",
+            "special-entity"
+          ]
+        },
+        {
+          "name": "Corporate Financial Reporting & Analysis",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 22,
+          "tags": [
+            "application"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Paper 2: Advanced Financial Management",
+      "icon": "\ud83d\udcb9",
+      "group": 1,
+      "paperNo": 2,
+      "totalMarks": 100,
+      "chapters": [
+        {
+          "name": "Financial Policy and Corporate Strategy",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Risk Analysis in Capital Budgeting",
+          "estimatedHours": 8,
+          "weightage": 8,
+          "difficulty": 4,
+          "pyqCount": 24,
+          "tags": [
+            "numerical",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Leasing Decisions",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Dividend Decisions",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "numerical",
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Indian Capital Market & SEBI Regulations",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "memory",
+            "regulatory"
+          ]
+        },
+        {
+          "name": "Security Analysis \u2013 Technical & Fundamental",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 20,
+          "tags": [
+            "numerical",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Security Valuation \u2013 Bonds, Equities",
+          "estimatedHours": 8,
+          "weightage": 8,
+          "difficulty": 4,
+          "pyqCount": 24,
+          "tags": [
+            "numerical",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Portfolio Management & Capital Market Theories",
+          "estimatedHours": 10,
+          "weightage": 10,
+          "difficulty": 4,
+          "pyqCount": 30,
+          "tags": [
+            "high-mark",
+            "numerical",
+            "tough"
+          ]
+        },
+        {
+          "name": "Mutual Funds",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Securitisation",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 3,
+          "pyqCount": 10,
+          "tags": [
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Derivatives \u2013 Futures & Options",
+          "estimatedHours": 10,
+          "weightage": 10,
+          "difficulty": 5,
+          "pyqCount": 30,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Foreign Exchange Exposure & Risk Management",
+          "estimatedHours": 10,
+          "weightage": 10,
+          "difficulty": 4,
+          "pyqCount": 30,
+          "tags": [
+            "high-mark",
+            "numerical"
+          ]
+        },
+        {
+          "name": "International Financial Management",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 20,
+          "tags": [
+            "numerical",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Corporate Restructuring \u2013 M&A, LBO, MBO",
+          "estimatedHours": 10,
+          "weightage": 9,
+          "difficulty": 4,
+          "pyqCount": 28,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Startup Finance, Venture Capital & PE",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "conceptual"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Paper 3: Advanced Auditing & Professional Ethics",
+      "icon": "\ud83d\udd0d",
+      "group": 1,
+      "paperNo": 3,
+      "totalMarks": 100,
+      "chapters": [
+        {
+          "name": "Quality Control \u2013 ISQM 1, SA 220",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "standards",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Audit Strategy, Planning & Programming",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 20,
+          "tags": [
+            "high-mark",
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Risk Assessment & Internal Control (SA 315, 330)",
+          "estimatedHours": 8,
+          "weightage": 8,
+          "difficulty": 4,
+          "pyqCount": 24,
+          "tags": [
+            "high-mark",
+            "tough"
+          ]
+        },
+        {
+          "name": "Audit Evidence & Substantive Procedures (SA 500 Series)",
+          "estimatedHours": 8,
+          "weightage": 8,
+          "difficulty": 4,
+          "pyqCount": 24,
+          "tags": [
+            "high-mark",
+            "application"
+          ]
+        },
+        {
+          "name": "Audit of Items in Financial Statements",
+          "estimatedHours": 9,
+          "weightage": 9,
+          "difficulty": 4,
+          "pyqCount": 28,
+          "tags": [
+            "high-mark",
+            "application"
+          ]
+        },
+        {
+          "name": "Audit Committee & Corporate Governance",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "memory",
+            "regulatory"
+          ]
+        },
+        {
+          "name": "Audit Report & Communication (SA 700 Series)",
+          "estimatedHours": 8,
+          "weightage": 9,
+          "difficulty": 4,
+          "pyqCount": 26,
+          "tags": [
+            "high-mark",
+            "tough"
+          ]
+        },
+        {
+          "name": "Audit of Consolidated Financial Statements",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 4,
+          "pyqCount": 18,
+          "tags": [
+            "tough"
+          ]
+        },
+        {
+          "name": "Audit of Banks & Financial Institutions",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 20,
+          "tags": [
+            "special-entity",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Audit of Insurance Companies",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "special-entity"
+          ]
+        },
+        {
+          "name": "Audit of NBFCs & Co-operative Societies",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "special-entity"
+          ]
+        },
+        {
+          "name": "Audit under Tax Laws \u2013 GST & Income Tax Audit",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "regulatory",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Information Systems Audit (ISA)",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "technology"
+          ]
+        },
+        {
+          "name": "Due Diligence, Investigation & Forensic Audit",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "application",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Peer Review, Quality Review & Transparency Report",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 2,
+          "pyqCount": 10,
+          "tags": [
+            "memory"
+          ]
+        },
+        {
+          "name": "Professional Ethics & Code of Ethics (ICAI)",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 22,
+          "tags": [
+            "high-mark",
+            "case-study"
+          ]
+        },
+        {
+          "name": "Liabilities of Auditors & Malpractice",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "regulatory"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Paper 4: Direct Tax Laws & International Taxation",
+      "icon": "\ud83c\udfdb\ufe0f",
+      "group": 2,
+      "paperNo": 4,
+      "totalMarks": 100,
+      "chapters": [
+        {
+          "name": "Scope of Total Income & Residential Status",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "conceptual"
+          ]
+        },
+        {
+          "name": "Incomes Exempt from Tax",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "memory"
+          ]
+        },
+        {
+          "name": "Income from Salary",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 20,
+          "tags": [
+            "numerical",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Income from House Property",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Profits & Gains from Business or Profession",
+          "estimatedHours": 10,
+          "weightage": 10,
+          "difficulty": 4,
+          "pyqCount": 30,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Capital Gains",
+          "estimatedHours": 10,
+          "weightage": 10,
+          "difficulty": 4,
+          "pyqCount": 32,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Income from Other Sources",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 2,
+          "pyqCount": 12,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Set-off and Carry Forward of Losses",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "Deductions from Gross Total Income",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "memory",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Assessment of Various Entities (HUF, Firms, AOP, Co-op)",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 22,
+          "tags": [
+            "high-mark",
+            "tough"
+          ]
+        },
+        {
+          "name": "Tax Assessment Procedure",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "procedural"
+          ]
+        },
+        {
+          "name": "Advance Tax, TDS & TCS",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 3,
+          "pyqCount": 22,
+          "tags": [
+            "high-mark",
+            "procedural"
+          ]
+        },
+        {
+          "name": "Appeals, Revisions & Tax Authorities",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "procedural"
+          ]
+        },
+        {
+          "name": "Special Provisions for Non-Residents",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 4,
+          "pyqCount": 18,
+          "tags": [
+            "international",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Double Taxation Avoidance Agreement (DTAA)",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 22,
+          "tags": [
+            "international",
+            "high-mark",
+            "tough"
+          ]
+        },
+        {
+          "name": "Transfer Pricing & Specified Domestic Transactions",
+          "estimatedHours": 9,
+          "weightage": 9,
+          "difficulty": 5,
+          "pyqCount": 28,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "BEPS, MLI, POEM & Indirect Transfer",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 5,
+          "pyqCount": 20,
+          "tags": [
+            "tough",
+            "international",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Black Money Act & Benami Transactions",
+          "estimatedHours": 4,
+          "weightage": 4,
+          "difficulty": 3,
+          "pyqCount": 10,
+          "tags": [
+            "regulatory"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Paper 5: Indirect Tax Laws",
+      "icon": "\ud83d\udccb",
+      "group": 2,
+      "paperNo": 5,
+      "totalMarks": 100,
+      "chapters": [
+        {
+          "name": "GST \u2013 Supply, Taxable Event & Levy",
+          "estimatedHours": 7,
+          "weightage": 8,
+          "difficulty": 3,
+          "pyqCount": 24,
+          "tags": [
+            "high-mark",
+            "conceptual"
+          ]
+        },
+        {
+          "name": "GST \u2013 Exemptions from GST",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "memory",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "GST \u2013 Time of Supply & Place of Supply",
+          "estimatedHours": 7,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 22,
+          "tags": [
+            "high-mark",
+            "tough"
+          ]
+        },
+        {
+          "name": "GST \u2013 Value of Supply",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "GST \u2013 Input Tax Credit",
+          "estimatedHours": 9,
+          "weightage": 10,
+          "difficulty": 4,
+          "pyqCount": 30,
+          "tags": [
+            "high-mark",
+            "tough",
+            "numerical"
+          ]
+        },
+        {
+          "name": "GST \u2013 Registration",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "procedural"
+          ]
+        },
+        {
+          "name": "GST \u2013 Invoice, Credit & Debit Notes, E-Way Bill",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "procedural"
+          ]
+        },
+        {
+          "name": "GST \u2013 Payment of Tax, TDS & TCS under GST",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "numerical"
+          ]
+        },
+        {
+          "name": "GST \u2013 Returns, Refunds & Reconciliation",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "procedural",
+            "high-mark"
+          ]
+        },
+        {
+          "name": "GST \u2013 Assessment, Audit & Annual Return",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "high-mark"
+          ]
+        },
+        {
+          "name": "GST \u2013 Search, Seizure, Demands & Recovery",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "procedural"
+          ]
+        },
+        {
+          "name": "GST \u2013 Appeals, Revision & Advance Ruling",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "procedural"
+          ]
+        },
+        {
+          "name": "Customs Law \u2013 Basic Concepts & Classification",
+          "estimatedHours": 6,
+          "weightage": 6,
+          "difficulty": 3,
+          "pyqCount": 18,
+          "tags": [
+            "high-mark"
+          ]
+        },
+        {
+          "name": "Customs \u2013 Valuation & Assessment",
+          "estimatedHours": 6,
+          "weightage": 7,
+          "difficulty": 4,
+          "pyqCount": 22,
+          "tags": [
+            "high-mark",
+            "numerical"
+          ]
+        },
+        {
+          "name": "Customs \u2013 Duty Exemptions, Remissions & Refund",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "memory"
+          ]
+        },
+        {
+          "name": "Foreign Trade Policy & Export Promotion Schemes",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 14,
+          "tags": [
+            "memory",
+            "regulatory"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Paper 6: Integrated Business Solutions (IBS)",
+      "icon": "\ud83e\udde9",
+      "group": 2,
+      "paperNo": 6,
+      "totalMarks": 100,
+      "chapters": [
+        {
+          "name": "Strategic Financial Management \u2013 Application",
+          "estimatedHours": 10,
+          "weightage": 20,
+          "difficulty": 4,
+          "pyqCount": 30,
+          "tags": [
+            "high-mark",
+            "case-study",
+            "application"
+          ],
+          "isIbs": true
+        },
+        {
+          "name": "Strategic Management & Business Analysis",
+          "estimatedHours": 8,
+          "weightage": 15,
+          "difficulty": 3,
+          "pyqCount": 22,
+          "tags": [
+            "high-mark",
+            "case-study"
+          ],
+          "isIbs": true
+        },
+        {
+          "name": "Audit & Assurance in Business Context",
+          "estimatedHours": 7,
+          "weightage": 15,
+          "difficulty": 3,
+          "pyqCount": 20,
+          "tags": [
+            "application",
+            "case-study"
+          ],
+          "isIbs": true
+        },
+        {
+          "name": "Financial Reporting in Business Context",
+          "estimatedHours": 7,
+          "weightage": 15,
+          "difficulty": 4,
+          "pyqCount": 20,
+          "tags": [
+            "application",
+            "case-study"
+          ],
+          "isIbs": true
+        },
+        {
+          "name": "Direct & Indirect Tax Integration",
+          "estimatedHours": 7,
+          "weightage": 15,
+          "difficulty": 4,
+          "pyqCount": 20,
+          "tags": [
+            "application",
+            "case-study"
+          ],
+          "isIbs": true
+        },
+        {
+          "name": "Corporate Governance, CSR & Ethics",
+          "estimatedHours": 5,
+          "weightage": 10,
+          "difficulty": 2,
+          "pyqCount": 14,
+          "tags": [
+            "memory",
+            "case-study"
+          ],
+          "isIbs": true
+        },
+        {
+          "name": "Integrated Reporting, Sustainability & ESG",
+          "estimatedHours": 4,
+          "weightage": 5,
+          "difficulty": 2,
+          "pyqCount": 10,
+          "tags": [
+            "conceptual",
+            "case-study"
+          ],
+          "isIbs": true
+        },
+        {
+          "name": "Risk Management Framework",
+          "estimatedHours": 5,
+          "weightage": 5,
+          "difficulty": 3,
+          "pyqCount": 12,
+          "tags": [
+            "conceptual",
+            "case-study"
+          ],
+          "isIbs": true
+        }
+      ]
+    }
+  ]
+}

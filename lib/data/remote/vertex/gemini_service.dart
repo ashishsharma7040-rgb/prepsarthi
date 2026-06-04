@@ -135,6 +135,32 @@ class GeminiService {
     return Map<String, dynamic>.from(fallback)..['_error'] = 'unknown';
   }
 
+  // ── Public raw text generator (for CA Final insights) ──────────────────────
+  /// Returns raw text response from Gemini (already stripped of markdown fences).
+  /// Use for custom JSON prompts that don't fit the existing structured APIs.
+  static Future<String> generateRaw(String prompt) async {
+    for (int attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _model
+            .generateContent([Content.text(prompt)])
+            .timeout(_timeout);
+        final text = response.text ?? '';
+        if (text.isEmpty) throw const FormatException('Empty AI response');
+        return text
+            .replaceAll(RegExp(r'```json\s*'), '')
+            .replaceAll(RegExp(r'```\s*'), '')
+            .trim();
+      } on TimeoutException {
+        if (attempt == _maxRetries) rethrow;
+        await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+      } catch (e) {
+        if (attempt == _maxRetries) rethrow;
+        await Future.delayed(Duration(seconds: attempt + 1));
+      }
+    }
+    throw Exception('Max retries exceeded');
+  }
+
   // ── 1. SWOT Analysis ──────────────────────────────────────────────────────
   static Future<SWOTReport> generateSWOT({
     required List<ChapterSchema> allChapters,

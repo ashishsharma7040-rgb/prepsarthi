@@ -76,6 +76,62 @@ const Map<String, String> _pyqUrls = {
   'neet_2025_': 'https://neet.nta.nic.in/webinfo/File/GetFile?FilePathandName=NEET2025QP.pdf',
 };
 
+
+// ─── CA Final Official PDF URLs (ICAI CDN) ────────────────────────────────────
+// Source: https://www.icai.org/post/question-papers-final-course
+// Paper numbering: p1=FR, p2=AFM, p3=Audit, p4=DT, p5=IDT, p6=IBS
+const Map<String, String> _caFinalUrls = {
+  // ── PYQ – May 2026 ───────────────────────────────────────────────────────
+  'ca_final_pyq_2026_May_P1': 'https://resource.cdn.icai.org/92055bos-aps4903-final-may2026-p1.pdf',
+  'ca_final_pyq_2026_May_P2': 'https://resource.cdn.icai.org/92056bos-aps4903-final-may2026-p2.pdf',
+  'ca_final_pyq_2026_May_P3': 'https://resource.cdn.icai.org/92098bos-aps4903-final-may2026-p3.pdf',
+  'ca_final_pyq_2026_May_P4': 'https://resource.cdn.icai.org/92141bos-aps4903-final-may2026-p4.pdf',
+  'ca_final_pyq_2026_May_P5': 'https://resource.cdn.icai.org/92142bos-aps4903-final-may2026-p5.pdf',
+  'ca_final_pyq_2026_May_P6': 'https://resource.cdn.icai.org/92220bos-aps4903-final-may2026-p6.pdf',
+  // ── PYQ – January 2026 ──────────────────────────────────────────────────
+  'ca_final_pyq_2026_Jan_P1': 'https://resource.cdn.icai.org/90237bos-aps3809-final-p1.pdf',
+  'ca_final_pyq_2026_Jan_P2': 'https://resource.cdn.icai.org/90270bos-aps3809-final-p2.pdf',
+  'ca_final_pyq_2026_Jan_P3': 'https://resource.cdn.icai.org/90287bos-aps3809-final-p3.pdf',
+  'ca_final_pyq_2026_Jan_P4': 'https://resource.cdn.icai.org/90293bos-aps3809-final-p4.pdf',
+  'ca_final_pyq_2026_Jan_P5': 'https://resource.cdn.icai.org/90320bos-aps3809-final-p5.pdf',
+  'ca_final_pyq_2026_Jan_P6': 'https://resource.cdn.icai.org/90368bos-aps3809-final-p6.pdf',
+  // ── PYQ – September 2025 ────────────────────────────────────────────────
+  'ca_final_pyq_2025_Sep_P1': 'https://resource.cdn.icai.org/88181bos-aps2265-final-p1.pdf',
+  'ca_final_pyq_2025_Sep_P2': 'https://resource.cdn.icai.org/88182bos-aps2265-final-p2.pdf',
+  'ca_final_pyq_2025_Sep_P3': 'https://resource.cdn.icai.org/88298bos-final160925-p3.pdf',
+  'ca_final_pyq_2025_Sep_P4': 'https://resource.cdn.icai.org/88299bos-final160925-p4.pdf',
+  'ca_final_pyq_2025_Sep_P5': 'https://resource.cdn.icai.org/88300bos-final160925-p5.pdf',
+  'ca_final_pyq_2025_Sep_P6': 'https://resource.cdn.icai.org/88274bos-aps2265-final-p6.pdf',
+  // ── PYQ – May 2025 ──────────────────────────────────────────────────────
+  'ca_final_pyq_2025_May_P1': 'https://resource.cdn.icai.org/85768bos-aps471-final-p1.pdf',
+  'ca_final_pyq_2025_May_P2': 'https://resource.cdn.icai.org/85769bos-aps471-final-p2.pdf',
+  'ca_final_pyq_2025_May_P3': 'https://resource.cdn.icai.org/85945bos-aps471-final-p3.pdf',
+  'ca_final_pyq_2025_May_P4': 'https://resource.cdn.icai.org/85946bos-aps471-final-p4.pdf',
+  'ca_final_pyq_2025_May_P5': 'https://resource.cdn.icai.org/85947bos-aps471-final-p5.pdf',
+  'ca_final_pyq_2025_May_P6': 'https://resource.cdn.icai.org/85948bos-aps471-final-p6.pdf',
+  // ── PYQ – November 2024 ─────────────────────────────────────────────────
+  'ca_final_pyq_2024_Nov_P1': 'https://resource.cdn.icai.org/82721bos66806.pdf',
+  'ca_final_pyq_2024_Nov_P2': 'https://resource.cdn.icai.org/82720bos66805.pdf',
+  'ca_final_pyq_2024_Nov_P3': 'https://resource.cdn.icai.org/82760bos66833.pdf',
+  'ca_final_pyq_2024_Nov_P4': 'https://resource.cdn.icai.org/82790bos66863.pdf',
+  'ca_final_pyq_2024_Nov_P5': 'https://resource.cdn.icai.org/82884bos66971p5.pdf',
+  'ca_final_pyq_2024_Nov_P6': 'https://resource.cdn.icai.org/82885bos66971p6.pdf',
+  // ── PYQ – May 2024 ──────────────────────────────────────────────────────
+  'ca_final_pyq_2024_May_P1': 'https://resource.cdn.icai.org/80128bos64233.pdf',
+  'ca_final_pyq_2024_May_P2': 'https://resource.cdn.icai.org/80144bos64256.pdf',
+  'ca_final_pyq_2024_May_P3': 'https://resource.cdn.icai.org/80192bos64339.pdf',
+  'ca_final_pyq_2024_May_P4': 'https://resource.cdn.icai.org/80261bos64418.pdf',
+  'ca_final_pyq_2024_May_P5': 'https://resource.cdn.icai.org/80531bos64714-p5.pdf',
+  'ca_final_pyq_2024_May_P6': 'https://resource.cdn.icai.org/80532bos64714-p6.pdf',
+  // ── MTP – Model Test Papers (Group-wise bundles) ─────────────────────────
+  // Source: https://www.icai.org/post/final-nset
+  'ca_final_mtp_grp1': 'https://resource.cdn.icai.org/84556bos68130-final-gp1.pdf',
+  'ca_final_mtp_grp2': 'https://resource.cdn.icai.org/84557bos68130-final-gp2.pdf',
+  // ── RTP & MTP portal links (ICAI official pages) ─────────────────────────
+  'ca_final_rtp_portal': 'https://www.icai.org/post/question-papers-final-course',
+  'ca_final_mtp_portal': 'https://www.icai.org/post/final-nset',
+};
+
 const String _pyqPrefsKey = 'pyq_practiced_ids_v1';
 
 // ─── Data model ───────────────────────────────────────────────────────────────
@@ -87,6 +143,10 @@ class PYQPaper {
   final String subject;
   final int questionCount;
   final bool isPracticed;
+  /// 'PYQ' | 'RTP' | 'MTP'
+  final String paperType;
+  /// For CA Final: 1-6 (paper number). 0 = not applicable
+  final int paperNo;
 
   const PYQPaper({
     required this.id,
@@ -96,13 +156,12 @@ class PYQPaper {
     required this.subject,
     required this.questionCount,
     this.isPracticed = false,
+    this.paperType = 'PYQ',
+    this.paperNo = 0,
   });
 
   /// Returns the official PDF URL for this paper, or null if not mapped.
-  String? get pdfUrl {
-    // Key format matches the id structure: exam_year_session
-    return _pyqUrls[id];
-  }
+  String? get pdfUrl => _pyqUrls[id] ?? _caFinalUrls[id];
 
   PYQPaper copyWith({bool? isPracticed}) => PYQPaper(
         id: id,
@@ -112,6 +171,8 @@ class PYQPaper {
         subject: subject,
         questionCount: questionCount,
         isPracticed: isPracticed ?? this.isPracticed,
+        paperType: paperType,
+        paperNo: paperNo,
       );
 }
 
@@ -202,6 +263,69 @@ class PYQNotifier extends Notifier<List<PYQPaper>> {
       ));
     }
 
+    // ── CA Final (NSET) PYQ – May 2024 to May 2026 ──────────────────────
+    const caAttempts = [
+      (2026, 'May'), (2026, 'Jan'),
+      (2025, 'Sep'), (2025, 'May'),
+      (2024, 'Nov'), (2024, 'May'),
+    ];
+    const caPapers = [
+      (1, 'Financial Reporting',          100),
+      (2, 'Advanced Financial Management',100),
+      (3, 'Advanced Auditing & Ethics',   100),
+      (4, 'Direct Tax Laws & Intl Tax',   100),
+      (5, 'Indirect Tax Laws',            100),
+      (6, 'Integrated Business Solutions',100),
+    ];
+    for (final (yr, sess) in caAttempts) {
+      for (final (pNo, pName, marks) in caPapers) {
+        papers.add(PYQPaper(
+          id: 'ca_final_pyq_${yr}_${sess}_P$pNo',
+          exam: 'CA Final',
+          year: yr,
+          session: '$sess $yr',
+          subject: 'Paper $pNo: $pName',
+          questionCount: marks,
+          paperType: 'PYQ',
+          paperNo: pNo,
+        ));
+      }
+    }
+
+    // ── CA Final MTP (Model Test Papers) ────────────────────────────────
+    papers.add(PYQPaper(
+      id: 'ca_final_mtp_grp1',
+      exam: 'CA Final',
+      year: 2025,
+      session: 'Group I Bundle',
+      subject: 'Papers 1, 2 & 3 (Group I)',
+      questionCount: 300,
+      paperType: 'MTP',
+      paperNo: 0,
+    ));
+    papers.add(PYQPaper(
+      id: 'ca_final_mtp_grp2',
+      exam: 'CA Final',
+      year: 2025,
+      session: 'Group II Bundle',
+      subject: 'Papers 4, 5 & 6 (Group II)',
+      questionCount: 300,
+      paperType: 'MTP',
+      paperNo: 0,
+    ));
+
+    // ── CA Final RTP portal link ─────────────────────────────────────────
+    papers.add(PYQPaper(
+      id: 'ca_final_rtp_portal',
+      exam: 'CA Final',
+      year: 2026,
+      session: 'All Attempts',
+      subject: 'Revision Test Papers – ICAI Portal',
+      questionCount: 0,
+      paperType: 'RTP',
+      paperNo: 0,
+    ));
+
     return papers;
   }
 }
@@ -235,11 +359,17 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
         return ['All', 'JEE Main', 'NEET UG'];
       case 'class12_boards':
         return ['All', 'JEE Main'];
+      case 'ca_final':
+        // CA Final tabs: PYQ / MTP / RTP
+        return ['PYQ', 'MTP', 'RTP'];
       case 'jee_main':
       default:
         return ['All', 'JEE Main'];
     }
   }
+
+  bool get _isCaFinal =>
+      ref.read(authProvider).user?.targetExam == 'ca_final';
 
   bool _sameTabs(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
@@ -281,6 +411,10 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
   void initState() {
     super.initState();
     _configureTabs(_examsForTarget(ref.read(authProvider).user?.targetExam));
+    // CA Final default filter = 'PYQ'
+    if (ref.read(authProvider).user?.targetExam == 'ca_final') {
+      _selectedFilter = 'PYQ';
+    }
   }
 
   @override
@@ -303,16 +437,39 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
       _configureTabs(exams);
     }
 
-    final relevantPapers = papers.where((p) => exams.contains(p.exam)).toList();
-    final filtered = _selectedFilter == 'All'
-        ? relevantPapers
-        : relevantPapers.where((p) => p.exam == _selectedFilter).toList();
-
-    final grouped = <int, List<PYQPaper>>{};
-    for (final p in filtered) {
-      grouped.putIfAbsent(p.year, () => []).add(p);
+    // CA Final: filter by paperType (PYQ/MTP/RTP); others by exam name
+    List<PYQPaper> relevantPapers;
+    List<PYQPaper> filtered;
+    if (_isCaFinal) {
+      relevantPapers = papers.where((p) => p.exam == 'CA Final').toList();
+      filtered = relevantPapers
+          .where((p) => p.paperType == _selectedFilter)
+          .toList();
+    } else {
+      relevantPapers = papers.where((p) => exams.contains(p.exam)).toList();
+      filtered = _selectedFilter == 'All'
+          ? relevantPapers
+          : relevantPapers.where((p) => p.exam == _selectedFilter).toList();
     }
-    final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    // CA Final: group by session string; others: group by year int
+    final Map<String, List<PYQPaper>> grouped = {};
+    for (final p in filtered) {
+      final key = _isCaFinal ? p.session : '${p.year}';
+      grouped.putIfAbsent(key, () => []).add(p);
+    }
+    final years = grouped.keys.toList();
+    if (_isCaFinal) {
+      // Keep chronological order (most recent first) by sorting by year desc
+      years.sort((a, b) {
+        final ay = filtered.firstWhere((p) => p.session == a).year;
+        final by = filtered.firstWhere((p) => p.session == b).year;
+        if (by != ay) return by.compareTo(ay);
+        return b.compareTo(a);
+      });
+    } else {
+      years.sort((a, b) => int.parse(b).compareTo(int.parse(a)));
+    }
 
     final practicedCount = relevantPapers.where((p) => p.isPracticed).length;
     final totalCount = relevantPapers.length;
@@ -320,6 +477,7 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
         totalCount == 0 ? 0 : (practicedCount / totalCount * 100).round();
     final practicedHours =
         relevantPapers.where((p) => p.isPracticed).fold<double>(0, (sum, p) {
+      if (p.exam == 'CA Final') return sum + 3.0;
       return sum + (p.exam == 'NEET UG' ? 3.5 : 3.0);
     });
 
@@ -478,7 +636,7 @@ class _PastPapersScreenState extends ConsumerState<PastPapersScreen>
                                           BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      '$year',
+                                      year,
                                       style: theme.textTheme.labelLarge
                                           ?.copyWith(
                                         color: accent,
@@ -545,6 +703,12 @@ class _PaperCard extends StatelessWidget {
         return ('🏆', isDark ? DarkColors.physics : LightColors.physics);
       case 'NEET UG':
         return ('🩺', isDark ? DarkColors.biology : LightColors.biology);
+      case 'CA Final':
+        final emojis = ['', '📊', '💹', '🔍', '🏛️', '📋', '🧩'];
+        final emoji = paper.paperNo > 0 && paper.paperNo < emojis.length
+            ? emojis[paper.paperNo]
+            : (paper.paperType == 'MTP' ? '📝' : '🗂️');
+        return (emoji, isDark ? DarkColors.primary : LightColors.primary);
       default:
         return ('📝', isDark ? DarkColors.primary : LightColors.primary);
     }

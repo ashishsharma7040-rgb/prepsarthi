@@ -117,6 +117,11 @@ class DashboardScreen extends ConsumerWidget {
                   streak: summary.streak,
                   isDark: isDark,
                   examMode: examMode,
+                  // Show attempt label for CA Final students
+                  caAttemptLabel: (auth.user?.targetExam == 'ca_final' &&
+                      auth.user?.caAttempt != null)
+                      ? '${auth.user!.caAttempt![0].toUpperCase()}${auth.user!.caAttempt!.substring(1)} ${auth.user!.examYear} Attempt'
+                      : null,
                 ),
               ),
               actions: [

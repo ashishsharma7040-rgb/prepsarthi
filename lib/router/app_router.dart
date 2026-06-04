@@ -27,12 +27,16 @@ import '../presentation/screens/mistakes/mistake_notebook_screen.dart';
 import '../presentation/screens/achievements/achievements_screen.dart';
 import '../presentation/widgets/common/shared_widgets.dart';
 
+import '../presentation/screens/ai/ca_insights_screen.dart';
+
 // ─── Route paths ──────────────────────────────────────────────────────────────
 class AppRoutes {
   static const login = '/login';
 
   static const welcome = '/onboarding/welcome';
   static const targetSelector = '/onboarding/target';
+  static const caAttemptSelector = '/onboarding/ca-attempt'; // ✅ NEW — CA Final only
+  static const caChapterProgress = '/onboarding/ca-progress'; // ✅ NEW — CA Final progress
   static const examYear = '/onboarding/year';
   static const dailyHours = '/onboarding/hours';
   static const blackoutDates = '/onboarding/blackout';
@@ -46,6 +50,7 @@ class AppRoutes {
 
   static const swotReport = '/ai/swot';
   static const patternReport = '/ai/pattern';
+  static const caInsights = '/ai/ca-insights'; // ✅ NEW — CA Final AI insights
 
   static const pomodoro = '/pomodoro';
   static const pastPapers = '/papers';
@@ -131,6 +136,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           pageBuilder: (_, s) => slide(s, const WelcomeScreen())),
       GoRoute(path: AppRoutes.targetSelector,
           pageBuilder: (_, s) => slide(s, const TargetSelectorScreen())),
+      GoRoute(path: AppRoutes.caAttemptSelector, // ✅ NEW
+          pageBuilder: (_, s) => slide(s, const CaAttemptSelectorScreen())),
+      GoRoute(path: AppRoutes.caChapterProgress, // ✅ NEW
+          pageBuilder: (_, s) => slide(s, const CaChapterProgressScreen())),
       GoRoute(path: AppRoutes.examYear,
           pageBuilder: (_, s) => slide(s, const ExamYearScreen())),
       GoRoute(path: AppRoutes.dailyHours,
@@ -184,6 +193,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           pageBuilder: (_, s) => slide(s, const SWOTReportScreen())),
       GoRoute(path: AppRoutes.patternReport,
           pageBuilder: (_, s) => slide(s, const PatternReportScreen())),
+      GoRoute(path: AppRoutes.caInsights, // ✅ NEW — CA Final AI topic insights
+          pageBuilder: (_, s) => slide(s, const CaInsightsScreen())),
 
       // Utilities
       GoRoute(

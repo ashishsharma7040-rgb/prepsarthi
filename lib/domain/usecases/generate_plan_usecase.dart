@@ -39,10 +39,24 @@ class GeneratePlanUseCase {
     if (totalDays <= 0) throw Exception('Exam date must be in the future.');
     if (chapters.isEmpty) throw Exception('No chapters loaded. Run Syllabus Loader first.');
 
+    // ── IBS Special Handling (CA Final Paper 6) ──────────────────────────────
+    // IBS is an integrative case-study paper. ICAI does not publish a standalone
+    // syllabus for it — it draws from all other 5 papers. Treating IBS chapters
+    // as regular study slots is incorrect and misleading.
+    //
+    // Instead:
+    //   • IBS chapters are EXCLUDED from the chapter-by-chapter schedule.
+    //   • IBS practice is injected as full-paper integrated mock sessions,
+    //     starting after week 6 (once the student has covered the core subjects).
+    //   • Each IBS mock session is 3 hours and covers all 6 areas.
+    final ibsChapters  = chapters.where((c) => c.tags.contains('case-study') && c.syllabusSource == 'ca_final' && c.classLevel == 6).toList();
+    final studyChapters = chapters.where((c) => !(c.tags.contains('case-study') && c.syllabusSource == 'ca_final' && c.classLevel == 6)).toList();
+    final isCaFinal = chapters.any((c) => c.syllabusSource == 'ca_final');
+
     // ── 1. Priority Scoring ──────────────────────────────────────────────────
     // priorityScore = weightage × log10(estimatedHours + 1)
     // Rationale: high-weight chapters get more time, log dampens extreme hour counts
-    final scores = chapters
+    final scores = studyChapters
         .map((c) => c.weightage * math.log(c.estimatedHours + 1) / math.log(10))
         .toList();
     final totalScore = scores.fold<double>(0, (a, b) => a + b);
@@ -54,15 +68,15 @@ class GeneratePlanUseCase {
     final totalEffectiveHours = planDays * dailyStudyHours * _effectiveHourRatio;
 
     final allocatedHours = List<double>.generate(
-      chapters.length,
+      studyChapters.length,
       (i) => (scores[i] / totalScore) * totalEffectiveHours,
     );
 
     // ── 3. Sort by priority descending then interleave subjects ───────────────
-    final sortedIndices = List<int>.generate(chapters.length, (i) => i)
+    final sortedIndices = List<int>.generate(studyChapters.length, (i) => i)
       ..sort((a, b) => scores[b].compareTo(scores[a]));
 
-    final interleaved = _interleaveBySubject(sortedIndices, chapters);
+    final interleaved = _interleaveBySubject(sortedIndices, studyChapters);
 
     // ── 4. Build blackout set ─────────────────────────────────────────────────
     final blackoutSet = blackoutDates
@@ -90,7 +104,7 @@ class GeneratePlanUseCase {
     }
 
     for (final idx in interleaved) {
-      final chapter = chapters[idx];
+      final chapter = studyChapters[idx];
       double remaining = allocatedHours[idx];
       int orderIndex = 0;
 
@@ -137,7 +151,7 @@ class GeneratePlanUseCase {
     }
 
     // ── 6. Inject Mock Test Sundays ──────────────────────────────────────────
-    final subjects = chapters.map((c) => c.subjectName).toSet().toList();
+    final subjects = studyChapters.map((c) => c.subjectName).toSet().toList();
     int subjectRotation = 0;
     var mockCursor = today;
     // Advance to first Sunday
@@ -165,7 +179,37 @@ class GeneratePlanUseCase {
       mockCursor = mockCursor.add(const Duration(days: 7));
     }
 
-    // ── 7. Persist ────────────────────────────────────────────────────────────
+    // ── 7. Inject IBS Integrated Mock Sessions (CA Final only) ──────────────
+    // IBS practice starts after week 6 — student needs core subject foundation.
+    // Sessions are labelled "IBS Integrated Mock" and scheduled fortnightly
+    // on Saturdays so they don't clash with subject mock tests on Sundays.
+    if (isCaFinal && ibsChapters.isNotEmpty) {
+      var ibsCursor = today.add(const Duration(days: 42)); // start after week 6
+      // Advance to first Saturday
+      while (ibsCursor.weekday != DateTime.saturday) {
+        ibsCursor = ibsCursor.add(const Duration(days: 1));
+      }
+      int ibsSession = 1;
+      while (ibsCursor.isBefore(examDate.subtract(const Duration(days: 7)))) {
+        final dateKey = DateTime(ibsCursor.year, ibsCursor.month, ibsCursor.day);
+        if (!isBlackout(dateKey)) {
+          entries.add(PlanEntrySchema()
+            ..chapterName = 'IBS Integrated Mock – Session $ibsSession'
+            ..subjectName = 'Paper 6: Integrated Business Solutions (IBS)'
+            ..plannedDate = dateKey
+            ..plannedHours = 3.0
+            ..orderIndex = 95
+            ..isRevision = false
+            ..isMockTest = true
+            ..mockTestSubject = 'IBS'
+            ..status = 'pending');
+          ibsSession++;
+        }
+        ibsCursor = ibsCursor.add(const Duration(days: 14)); // fortnightly
+      }
+    }
+
+    // ── 8. Persist ────────────────────────────────────────────────────────────
     await db.writeTxn(() async {
       await db.planEntrySchemas.clear();
       await db.planEntrySchemas.putAll(entries);
@@ -369,4 +413,77 @@ class WeaknessDetectorUseCase {
     }
     return streak;
   }
+
+  // ── CA Final: pre-apply chapter progress from onboarding ─────────────────
+  // Reads the granular chapter-level map first (ca_final_chapter_progress).
+  // Falls back to paper-level map (ca_final_paper_progress) if not available.
+  static Future<void> _applyCaFinalProgress(List<ChapterSchema> chapters) async {
+    if (chapters.isEmpty || chapters.first.syllabusSource != 'ca_final') return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final db = IsarService.db;
+
+      // ── Chapter-level granularity (preferred path) ────────────────────
+      final chapterRaw = prefs.getString('ca_final_chapter_progress');
+      if (chapterRaw != null) {
+        final Map<String, dynamic> chapterMap =
+            jsonDecode(chapterRaw) as Map<String, dynamic>;
+        await db.writeTxn(() async {
+          for (final ch in chapters) {
+            // Key format is "paperNo:chapterIndex".
+            // We match by classLevel (paperNo) and chapter position within that paper.
+            final sameSubject = chapters
+                .where((c) => c.classLevel == ch.classLevel)
+                .toList()
+              ..sort((a, b) => a.name.compareTo(b.name));
+            final idxInSubject = sameSubject.indexOf(ch);
+            final key = '${ch.classLevel}:$idxInSubject';
+            final chapterStatus = chapterMap[key] as String?;
+            if (chapterStatus == null) continue;
+            _applyStatusToChapter(ch, chapterStatus);
+            await db.chapterSchemas.put(ch);
+          }
+        });
+        return; // chapter-level applied — done
+      }
+
+      // ── Fallback: paper-level map ──────────────────────────────────────
+      final paperRaw = prefs.getString('ca_final_paper_progress');
+      if (paperRaw == null) return;
+      final Map<String, dynamic> progressMap =
+          jsonDecode(paperRaw) as Map<String, dynamic>;
+      await db.writeTxn(() async {
+        for (final ch in chapters) {
+          final paperStatus = progressMap[ch.classLevel.toString()] as String?;
+          if (paperStatus == null) continue;
+          _applyStatusToChapter(ch, paperStatus);
+          await db.chapterSchemas.put(ch);
+        }
+      });
+    } catch (e) {
+      // Non-fatal — planner proceeds normally if progress can't be read
+    }
+  }
+
+  static void _applyStatusToChapter(ChapterSchema ch, String status) {
+    switch (status) {
+      case 'completed':
+        ch.masteryLevel = 7;
+        ch.status = 'completed';
+        break;
+      case 'revision_pending':
+        ch.masteryLevel = 4;
+        ch.status = 'revision_pending';
+        break;
+      case 'in_progress':
+        ch.masteryLevel = 2;
+        ch.status = 'in_progress';
+        break;
+      case 'not_started':
+      default:
+        break; // leave as-is
+    }
+  }
+
+
 }

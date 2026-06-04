@@ -83,6 +83,7 @@ class AuthNotifier extends Notifier<AuthState> {
     required String examYear,
     required double dailyHours,
     required DateTime examDate,
+    String? caAttempt,
   }) async {
     final db = IsarService.db;
     final user = state.user;
@@ -93,6 +94,13 @@ class AuthNotifier extends Notifier<AuthState> {
     user.examDate = examDate;
     user.onboardingComplete = true;
     user.planStartDate = DateTime.now();
+    // ✅ Persist CA Final attempt so it survives app restarts.
+    // ICAI officially holds CA Final twice yearly: May (week 2) & November (week 2).
+    if (targetExam == 'ca_final') {
+      user.caAttempt = caAttempt ?? 'may';
+    } else {
+      user.caAttempt = null;
+    }
     await db.writeTxn(() async => db.userSchemas.put(user));
     state = state.copyWith(user: user);
   }
@@ -142,12 +150,15 @@ final authProvider =
 class OnboardingState {
   final String? targetExam;
   final String? examYear;
+  // ✅ CA Final: attempt = 'may' | 'november' | 'january' | 'september'
+  final String? caAttempt;
   final double dailyHours;
   final List<DateTime> blackoutDates;
 
   const OnboardingState({
     this.targetExam,
     this.examYear,
+    this.caAttempt,
     this.dailyHours = 6.0,
     this.blackoutDates = const [],
   });
@@ -157,6 +168,13 @@ class OnboardingState {
     final year = int.tryParse(examYear!);
     if (year == null) return null;
     switch (targetExam) {
+      case 'ca_final':
+        // CA Final: ICAI holds exams twice yearly — May (week 2) & November (week 2).
+        switch (caAttempt) {
+          case 'may':       return DateTime(year, 5, 12);
+          case 'november':  return DateTime(year, 11, 10);
+          default:          return DateTime(year, 5, 12);
+        }
       case 'neet':
         return DateTime(year, 5, 4);
       case 'jee_advanced':
@@ -174,12 +192,14 @@ class OnboardingState {
   OnboardingState copyWith({
     String? targetExam,
     String? examYear,
+    String? caAttempt,
     double? dailyHours,
     List<DateTime>? blackoutDates,
   }) =>
       OnboardingState(
         targetExam: targetExam ?? this.targetExam,
         examYear: examYear ?? this.examYear,
+        caAttempt: caAttempt ?? this.caAttempt,
         dailyHours: dailyHours ?? this.dailyHours,
         blackoutDates: blackoutDates ?? this.blackoutDates,
       );
@@ -191,6 +211,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setTarget(String exam) => state = state.copyWith(targetExam: exam);
   void setYear(String year) => state = state.copyWith(examYear: year);
+  void setCaAttempt(String attempt) =>
+      state = state.copyWith(caAttempt: attempt);
   void setHours(double h) => state = state.copyWith(dailyHours: h);
 
   /// Persists the holiday / blackout dates selected on the onboarding screen.
@@ -402,6 +424,64 @@ class PlanNotifier extends Notifier<PlanState> {
 
   Future<void> refresh() => _load();
 
+  // ── Manual Plan Editing ──────────────────────────────────────────────────
+  // Powers the full manual-edit flow: rearrange sessions within a day,
+  // change hours/date of any entry, or remove an entry entirely.
+  // All changes persist to Isar and invalidate in-memory state so every
+  // listening widget re-renders immediately.
+
+  /// Reorder two entries WITHIN the same day by swapping their orderIndex values.
+  /// Called after a ReorderableListView drag-and-drop completes.
+  Future<void> reorderDayEntries(
+      List<PlanEntrySchema> dayEntries, int oldIndex, int newIndex) async {
+    if (oldIndex == newIndex) return;
+    final db = IsarService.db;
+
+    final reordered = List<PlanEntrySchema>.from(dayEntries);
+    final moved = reordered.removeAt(oldIndex);
+    final insertAt = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    reordered.insert(insertAt, moved);
+
+    await db.writeTxn(() async {
+      for (int i = 0; i < reordered.length; i++) {
+        reordered[i].orderIndex = i;
+        await db.planEntrySchemas.put(reordered[i]);
+      }
+    });
+    await _load();
+  }
+
+  /// Edit a plan entry's date and/or planned hours in place.
+  /// Moving to a different date fixes its orderIndex on the target day.
+  Future<void> editPlanEntry(
+      Id entryId, {DateTime? newDate, double? newHours}) async {
+    final db = IsarService.db;
+    final entry = await db.planEntrySchemas.get(entryId);
+    if (entry == null) return;
+
+    if (newDate != null) {
+      final day = DateTime(newDate.year, newDate.month, newDate.day);
+      final maxOrder = await db.planEntrySchemas
+          .filter()
+          .plannedDateEqualTo(day)
+          .sortByOrderIndexDesc()
+          .findFirst();
+      entry.plannedDate = day;
+      entry.orderIndex = (maxOrder?.orderIndex ?? -1) + 1;
+    }
+    if (newHours != null) entry.plannedHours = newHours.clamp(0.5, 8.0);
+
+    await db.writeTxn(() async => db.planEntrySchemas.put(entry));
+    await _load();
+  }
+
+  /// Permanently delete a plan entry.
+  Future<void> deletePlanEntry(Id entryId) async {
+    final db = IsarService.db;
+    await db.writeTxn(() async => db.planEntrySchemas.delete(entryId));
+    await _load();
+  }
+
   /// TASK 9: Inserts a quick 1.5-hour plan entry for the next available slot
   /// this week for the given chapter/subject.
   Future<void> addQuickEntry(
@@ -449,15 +529,13 @@ class PlanNotifier extends Notifier<PlanState> {
 
   String _syllabusSource(String exam) {
     switch (exam) {
-      case 'neet':
-        return 'neet_ug';
-      case 'jee_advanced':
-        return 'jee_advanced';
+      case 'neet':        return 'neet_ug';
+      case 'jee_advanced':return 'jee_advanced';
+      case 'ca_final':    return 'ca_final';
       case 'both':
       case 'class12_boards':
       case 'jee_main':
-      default:
-        return 'jee_main';
+      default:            return 'jee_main';
     }
   }
 
@@ -654,6 +732,76 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
     if (pyqCount >= 10) await unlock('pyq_10');
     if (pyqCount >= 50) await unlock('pyq_50');
     if (pyqCount >= 100) await unlock('pyq_100');
+
+    // ── CA Final Group badges ─────────────────────────────────────────────
+    // Check if the student is a CA Final user and whether all chapters in
+    // Group I (Papers 1–3) or Group II (Papers 4–6) are at 'learned' or better.
+    final user = await db.userSchemas.where().findFirst();
+    if (user?.targetExam == 'ca_final') {
+      // Group I: Papers 1, 2, 3 → classLevel 1, 2, 3
+      final g1Total = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo('ca_final')
+          .and()
+          .group((q) => q
+              .classLevelEqualTo(1)
+              .or()
+              .classLevelEqualTo(2)
+              .or()
+              .classLevelEqualTo(3))
+          .count();
+      final g1Done = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo('ca_final')
+          .and()
+          .group((q) => q
+              .classLevelEqualTo(1)
+              .or()
+              .classLevelEqualTo(2)
+              .or()
+              .classLevelEqualTo(3))
+          .and()
+          .group((q) => q
+              .statusEqualTo('learned')
+              .or()
+              .statusEqualTo('revised')
+              .or()
+              .statusEqualTo('tested'))
+          .count();
+      if (g1Total > 0 && g1Done >= g1Total) await unlock('ca_group1');
+
+      // Group II: Papers 4, 5, 6 → classLevel 4, 5, 6
+      final g2Total = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo('ca_final')
+          .and()
+          .group((q) => q
+              .classLevelEqualTo(4)
+              .or()
+              .classLevelEqualTo(5)
+              .or()
+              .classLevelEqualTo(6))
+          .count();
+      final g2Done = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo('ca_final')
+          .and()
+          .group((q) => q
+              .classLevelEqualTo(4)
+              .or()
+              .classLevelEqualTo(5)
+              .or()
+              .classLevelEqualTo(6))
+          .and()
+          .group((q) => q
+              .statusEqualTo('learned')
+              .or()
+              .statusEqualTo('revised')
+              .or()
+              .statusEqualTo('tested'))
+          .count();
+      if (g2Total > 0 && g2Done >= g2Total) await unlock('ca_group2');
+    }
   }
 
   Future<void> refresh() => _load();

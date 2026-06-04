@@ -1,10 +1,7 @@
 // lib/data/local/preload/syllabus_loader.dart
 //
-// ✅ FIX (Improvement #2): Added real Class 12 Boards syllabus asset.
-//     class12_boards target no longer silently falls back to JEE Main.
-//     All 5 targets (jee_main, jee_advanced, neet, both, class12_boards)
-//     now load their own dedicated JSON syllabi.
-//
+// ✅ Supports: jee_main, jee_advanced, neet, both, class12_boards, ca_final
+// ✅ CA Final: ICAI NSET (New Scheme) — 6 papers, 2 groups, May/Nov attempts
 // ✅ SAFE reload: updates chapter metadata WITHOUT wiping mastery,
 //    hoursSpent, revisionCount, or any student progress.
 //    Only "Clear All Study Data" in Settings does a full wipe.
@@ -15,16 +12,18 @@ import 'package:isar/isar.dart';
 import '../isar/isar_service.dart';
 
 // ── Asset paths ────────────────────────────────────────────────────────────
-const _jeeMainAsset     = 'assets/syllabus/jee_main_2026.json';
-const _jeeAdvAsset      = 'assets/syllabus/jee_advanced_2026.json';
-const _neetAsset        = 'assets/syllabus/neet_ug_2026.json';
-const _boardsAsset      = 'assets/syllabus/class12_boards_2026.json'; // ✅ NEW
+const _jeeMainAsset  = 'assets/syllabus/jee_main_2026.json';
+const _jeeAdvAsset   = 'assets/syllabus/jee_advanced_2026.json';
+const _neetAsset     = 'assets/syllabus/neet_ug_2026.json';
+const _boardsAsset   = 'assets/syllabus/class12_boards_2026.json';
+const _caFinalAsset  = 'assets/syllabus/ca_final_2026.json'; // ✅ NEW
 
-// ── Syllabus source identifiers (stored in ChapterSchema.syllabusSource) ──
-const kSourceJeeMain    = 'jee_main';
-const kSourceJeeAdv     = 'jee_advanced';
-const kSourceNeet       = 'neet_ug';
-const kSourceBoards     = 'class12_boards'; // ✅ NEW — no longer aliased to jee_main
+// ── Syllabus source identifiers ────────────────────────────────────────────
+const kSourceJeeMain  = 'jee_main';
+const kSourceJeeAdv   = 'jee_advanced';
+const kSourceNeet     = 'neet_ug';
+const kSourceBoards   = 'class12_boards';
+const kSourceCaFinal  = 'ca_final'; // ✅ NEW
 
 class SyllabusLoader {
   // ── Helper: resolve (asset, sourceId) pairs for a given exam target ──────
@@ -37,8 +36,9 @@ class SyllabusLoader {
       case 'both':
         return [(_jeeMainAsset, kSourceJeeMain), (_neetAsset, kSourceNeet)];
       case 'class12_boards':
-        // ✅ FIX: Now loads the real Boards syllabus — never falls back to JEE Main.
         return [(_boardsAsset, kSourceBoards)];
+      case 'ca_final': // ✅ NEW
+        return [(_caFinalAsset, kSourceCaFinal)];
       case 'jee_main':
       default:
         return [(_jeeMainAsset, kSourceJeeMain)];
@@ -58,8 +58,6 @@ class SyllabusLoader {
   }
 
   // ── Public: safe metadata reload — progress NEVER touched ────────────────
-  /// Called from Settings → "Reload Syllabus". Adds new chapters if the
-  /// curriculum was expanded; existing hoursSpent / masteryLevel / etc. intact.
   static Future<SafeReloadResult> safeReload({String? targetExam}) async {
     int added   = 0;
     int updated = 0;
@@ -71,6 +69,8 @@ class SyllabusLoader {
 
       for (final subject in (json['subjects'] as List)) {
         final subjectName = subject['name'] as String;
+        // CA Final subjects carry paperNo; JEE/NEET use classLevel per chapter
+        final paperNo = subject['paperNo'] as int? ?? 0;
         for (final ch in (subject['chapters'] as List)) {
           final name   = ch['name']   as String;
           final source = entry.$2;
@@ -87,7 +87,8 @@ class SyllabusLoader {
                 ..subjectName    = subjectName
                 ..syllabusSource = source
                 ..name           = name
-                ..classLevel     = ch['class']          as int
+                // For CA Final paperNo replaces classLevel; JEE/NEET use 'class'
+                ..classLevel     = (ch['class'] as int?) ?? paperNo
                 ..estimatedHours = (ch['estimatedHours'] as num).toDouble()
                 ..weightage      = (ch['weightage']      as num).toDouble()
                 ..difficulty     = ch['difficulty']      as int
@@ -97,7 +98,6 @@ class SyllabusLoader {
               await db.chapterSchemas.put(newChapter);
               added++;
             } else {
-              // ✅ Metadata only — student progress completely untouched
               existing.estimatedHours = (ch['estimatedHours'] as num).toDouble();
               existing.weightage      = (ch['weightage']      as num).toDouble();
               existing.difficulty     = ch['difficulty']      as int;
@@ -122,12 +122,13 @@ class SyllabusLoader {
 
     for (final subject in (json['subjects'] as List)) {
       final subjectName = subject['name'] as String;
+      final paperNo = subject['paperNo'] as int? ?? 0;
       for (final ch in (subject['chapters'] as List)) {
         chapters.add(ChapterSchema()
           ..subjectName    = subjectName
           ..syllabusSource = source
           ..name           = ch['name']          as String
-          ..classLevel     = ch['class']          as int
+          ..classLevel     = (ch['class'] as int?) ?? paperNo
           ..estimatedHours = (ch['estimatedHours'] as num).toDouble()
           ..weightage      = (ch['weightage']      as num).toDouble()
           ..difficulty     = ch['difficulty']      as int
@@ -162,6 +163,8 @@ class SyllabusLoader {
       _badge('pyq_100',     '🎯', 'PYQ Master',         'Solve 100 past year questions'),
       _badge('mastery_10',  '🌟', 'Chapter Champion',   'Reach Test Ready level in 10 chapters'),
       _badge('ai_report',   '🤖', 'AI Insight',         'Generate your first AI analysis'),
+      _badge('ca_group1',   '📊', 'Group I Cleared',    'Complete all Group I chapters (CA Final)'),
+      _badge('ca_group2',   '🏛️', 'Group II Cleared',   'Complete all Group II chapters (CA Final)'),
     ];
     await db.writeTxn(() async => db.achievementSchemas.putAll(badges));
   }

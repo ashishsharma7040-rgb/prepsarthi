@@ -51,6 +51,8 @@ class DashboardHeader extends StatelessWidget {
   final int daysToExam, streak;
   final bool isDark;
   final ExamMode examMode;
+  /// For CA Final students: displayed as e.g. "May 2026 Attempt"
+  final String? caAttemptLabel;
 
   const DashboardHeader({
     super.key,
@@ -59,6 +61,7 @@ class DashboardHeader extends StatelessWidget {
     required this.streak,
     required this.isDark,
     required this.examMode,
+    this.caAttemptLabel,
   });
 
   String _greeting() {
@@ -106,6 +109,25 @@ class DashboardHeader extends StatelessWidget {
                               days: daysToExam,
                               isDark: isDark,
                               examMode: examMode),
+                        // CA Final: always show which attempt is targeted
+                        if (caAttemptLabel != null) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF5C6BC0).withOpacity(0.10),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF5C6BC0).withOpacity(0.25)),
+                            ),
+                            child: Text(
+                              '⚖️  $caAttemptLabel',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: const Color(0xFF5C6BC0),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1101,17 +1123,26 @@ class DashboardAIButton extends StatelessWidget {
 }
 
 // ─── Quick Actions Row ────────────────────────────────────────────────────────
-class DashboardQuickActionsRow extends StatelessWidget {
+class DashboardQuickActionsRow extends ConsumerWidget {
   const DashboardQuickActionsRow({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final targetExam = ref.watch(authProvider).user?.targetExam;
+    final isCaFinal = targetExam == 'ca_final';
+
     final actions = [
-      ('🍅', 'Pomodoro', AppRoutes.pomodoro),
-      ('🔄', 'Revision', AppRoutes.revision),
+      ('🍅', 'Pomodoro',   AppRoutes.pomodoro),
+      ('🔄', 'Revision',   AppRoutes.revision),
       ('📊', 'Test Scores', AppRoutes.testScore),
-      ('📄', 'PYQ Papers', AppRoutes.pastPapers),
-      ('📤', 'Export PDF', AppRoutes.export),
+      // CA Final gets dedicated papers + AI insights; others get PYQ Papers
+      if (isCaFinal) ...const [
+        ('📄', 'CA Papers', AppRoutes.pastPapers),
+        ('🎯', 'AI Insights', AppRoutes.caInsights),
+      ] else ...[
+        ('📄', 'PYQ Papers', AppRoutes.pastPapers),
+        ('📤', 'Export PDF', AppRoutes.export),
+      ],
     ];
     return Row(
       children: actions.asMap().entries.map((e) => Expanded(

@@ -26,6 +26,10 @@ class UserSchema {
   DateTime? planStartDate;
   DateTime? examDate;
 
+  // CA Final — persisted attempt ('may' | 'november'). Only two real attempts
+  // per year per ICAI calendar. Null for non-CA exams.
+  String? caAttempt;
+
   // Subscription
   bool isPremium = false;
   DateTime? premiumExpiry;

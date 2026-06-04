@@ -108,8 +108,12 @@ class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
             e.plannedDate.day == day.day).toList()
           ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
         if (dayEntries.isEmpty) return const SizedBox.shrink();
-        return _DaySection(day: day, entries: dayEntries, isDark: isDark)
-            .animate(delay: (i * 50).ms).fadeIn().slideY(begin: 0.06);
+        return _DaySection(
+          key: ValueKey(day),
+          day: day,
+          entries: dayEntries,
+          isDark: isDark,
+        ).animate(delay: (i * 50).ms).fadeIn().slideY(begin: 0.06);
       },
     );
   }
@@ -125,49 +129,57 @@ class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Day Section with fully wired slidable actions
+// Day Section — supports view mode (swipe actions) & edit mode (drag-reorder)
 // ─────────────────────────────────────────────────────────────────────────────
-class _DaySection extends ConsumerWidget {
+class _DaySection extends ConsumerStatefulWidget {
   final DateTime day;
   final List<PlanEntrySchema> entries;
   final bool isDark;
 
-  const _DaySection({required this.day, required this.entries, required this.isDark});
+  const _DaySection({required this.day, required this.entries, required this.isDark, super.key});
 
   bool get _isToday {
     final n = DateTime.now();
     return day.year == n.year && day.month == n.month && day.day == n.day;
   }
+}
+
+class _DaySectionState extends ConsumerState<_DaySection> {
+  bool _editMode = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = widget.isDark;
     final accent = isDark ? DarkColors.primary : LightColors.primary;
+    final entries = widget.entries;
     final total = entries.fold(0.0, (s, e) => s + e.plannedHours);
-    final done = entries.where((e) => e.status == 'completed').fold(0.0, (s, e) => s + e.plannedHours);
+    final done  = entries.where((e) => e.status == 'completed').fold(0.0, (s, e) => s + e.plannedHours);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 18),
+        // ── Day header row ────────────────────────────────────────────────
         Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
-                color: _isToday ? accent : Colors.transparent,
+                color: widget._isToday ? accent : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _isToday ? accent : (isDark ? DarkColors.outline : LightColors.outline)),
+                border: Border.all(
+                  color: widget._isToday ? accent : (isDark ? DarkColors.outline : LightColors.outline)),
               ),
               child: Text(
-                _isToday ? '🔥 Today' : DateFormat('EEE, d MMM').format(day),
+                widget._isToday ? '🔥 Today' : DateFormat('EEE, d MMM').format(widget.day),
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: _isToday ? Colors.white : null,
+                  color: widget._isToday ? Colors.white : null,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Text('${total.toStringAsFixed(1)}h',
                 style: theme.textTheme.labelMedium?.copyWith(color: accent)),
             if (done > 0) ...[
@@ -175,62 +187,357 @@ class _DaySection extends ConsumerWidget {
               Text('• ${done.toStringAsFixed(1)}h done',
                   style: theme.textTheme.labelSmall?.copyWith(color: LightColors.learned)),
             ],
+            const Spacer(),
+            // Edit-mode toggle
+            GestureDetector(
+              onTap: () => setState(() => _editMode = !_editMode),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _editMode
+                      ? accent.withOpacity(0.15)
+                      : (isDark ? DarkColors.surfaceVariant : LightColors.surfaceVariant),
+                  borderRadius: BorderRadius.circular(8),
+                  border: _editMode ? Border.all(color: accent.withOpacity(0.4)) : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _editMode ? Icons.check_rounded : Icons.edit_rounded,
+                      size: 14,
+                      color: _editMode ? accent : (isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _editMode ? 'Done' : 'Edit',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: _editMode ? accent : null,
+                        fontWeight: _editMode ? FontWeight.w700 : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        ...entries.map((entry) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Slidable(
-            key: ValueKey(entry.id),
-            endActionPane: ActionPane(
-              motion: const StretchMotion(),
-              extentRatio: 0.42,
-              children: [
-                SlidableAction(
-                  onPressed: (_) async {
-                    // WIRED: mark completed
-                    await ref.read(planProvider.notifier).markPlanEntryStatus(
-                      entry.id, 'completed', entry.plannedHours,
-                    );
-                    // Also mark chapter as learned if not already
-                    if (entry.status != 'completed' && !entry.isRevision) {
-                      await ref.read(planProvider.notifier).markChapterStatus(
-                        entry.chapterName, 'learned',
+
+        // ── Edit mode: drag-to-reorder list ──────────────────────────────
+        if (_editMode)
+          _buildReorderableList(context, entries, isDark, accent, theme)
+        // ── View mode: slidable swipe actions ─────────────────────────
+        else
+          ...entries.map((entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Slidable(
+              key: ValueKey(entry.id),
+              endActionPane: ActionPane(
+                motion: const StretchMotion(),
+                extentRatio: 0.65,
+                children: [
+                  // Mark Done
+                  SlidableAction(
+                    onPressed: (_) async {
+                      await ref.read(planProvider.notifier).markPlanEntryStatus(
+                        entry.id, 'completed', entry.plannedHours,
                       );
-                      await ref.read(authProvider.notifier).updateStreak();
-                    }
-                    // Log automatically
-                    await ref.read(studyLogProvider.notifier).logSession(
-                      chapterName: entry.chapterName,
-                      subjectName: entry.subjectName,
-                      hours: entry.plannedHours,
-                      activityTag: entry.isRevision ? 'revised' : 'learned',
-                    );
-                  },
-                  backgroundColor: LightColors.learned,
-                  foregroundColor: Colors.white,
-                  icon: Icons.check_circle_outline,
-                  label: 'Done',
-                ),
-                SlidableAction(
-                  onPressed: (_) async {
-                    // WIRED: mark skipped
-                    await ref.read(planProvider.notifier).markPlanEntryStatus(
-                      entry.id, 'skipped', 0,
-                    );
-                  },
-                  backgroundColor: LightColors.tested,
-                  foregroundColor: Colors.white,
-                  icon: Icons.skip_next_rounded,
-                  label: 'Skip',
-                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(14)),
-                ),
-              ],
+                      if (entry.status != 'completed' && !entry.isRevision) {
+                        await ref.read(planProvider.notifier).markChapterStatus(
+                          entry.chapterName, 'learned',
+                        );
+                        await ref.read(authProvider.notifier).updateStreak();
+                      }
+                      await ref.read(studyLogProvider.notifier).logSession(
+                        chapterName: entry.chapterName,
+                        subjectName: entry.subjectName,
+                        hours: entry.plannedHours,
+                        activityTag: entry.isRevision ? 'revised' : 'learned',
+                      );
+                    },
+                    backgroundColor: LightColors.learned,
+                    foregroundColor: Colors.white,
+                    icon: Icons.check_circle_outline,
+                    label: 'Done',
+                  ),
+                  // Skip
+                  SlidableAction(
+                    onPressed: (_) async {
+                      await ref.read(planProvider.notifier).markPlanEntryStatus(
+                        entry.id, 'skipped', 0,
+                      );
+                    },
+                    backgroundColor: LightColors.tested,
+                    foregroundColor: Colors.white,
+                    icon: Icons.skip_next_rounded,
+                    label: 'Skip',
+                  ),
+                  // Edit hours / date
+                  SlidableAction(
+                    onPressed: (_) => _showEditSheet(context, entry, isDark),
+                    backgroundColor: const Color(0xFF5C6BC0),
+                    foregroundColor: Colors.white,
+                    icon: Icons.tune_rounded,
+                    label: 'Edit',
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(14)),
+                  ),
+                ],
+              ),
+              startActionPane: ActionPane(
+                motion: const StretchMotion(),
+                extentRatio: 0.25,
+                children: [
+                  SlidableAction(
+                    onPressed: (_) => _confirmDelete(context, entry),
+                    backgroundColor: Colors.red.shade600,
+                    foregroundColor: Colors.white,
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Delete',
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
+                  ),
+                ],
+              ),
+              child: _EntryTile(entry: entry, isDark: isDark),
             ),
-            child: _EntryTile(entry: entry, isDark: isDark),
-          ),
-        )),
+          )),
       ],
+    );
+  }
+
+  // ── Reorderable list for edit mode ──────────────────────────────────────
+  Widget _buildReorderableList(BuildContext context,
+      List<PlanEntrySchema> entries, bool isDark, Color accent, ThemeData theme) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: entries.length,
+      proxyDecorator: (child, index, animation) => Material(
+        elevation: 6,
+        borderRadius: BorderRadius.circular(14),
+        child: child,
+      ),
+      onReorder: (oldIdx, newIdx) async {
+        await ref.read(planProvider.notifier).reorderDayEntries(entries, oldIdx, newIdx);
+      },
+      itemBuilder: (context, i) {
+        final entry = entries[i];
+        return Padding(
+          key: ValueKey(entry.id),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Stack(
+            children: [
+              _EntryTile(entry: entry, isDark: isDark),
+              // Drag handle overlay on right side
+              Positioned(
+                right: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Icon(Icons.drag_handle_rounded,
+                    color: isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant,
+                    size: 20,
+                  ),
+                ),
+              ),
+              // Delete button in edit mode
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _confirmDelete(context, entry),
+                    child: Container(
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.remove_rounded, color: Colors.white, size: 16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Edit sheet: change hours & date ─────────────────────────────────────
+  void _showEditSheet(BuildContext context, PlanEntrySchema entry, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EntryEditSheet(entry: entry, isDark: isDark),
+    );
+  }
+
+  // ── Delete confirmation ─────────────────────────────────────────────────
+  void _confirmDelete(BuildContext context, PlanEntrySchema entry) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove session?'),
+        content: Text('Remove "${entry.chapterName}" from your plan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(planProvider.notifier).deletePlanEntry(entry.id);
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Entry Edit Sheet — change hours and/or move to a different date
+// ─────────────────────────────────────────────────────────────────────────────
+class _EntryEditSheet extends ConsumerStatefulWidget {
+  final PlanEntrySchema entry;
+  final bool isDark;
+  const _EntryEditSheet({required this.entry, required this.isDark});
+  @override
+  ConsumerState<_EntryEditSheet> createState() => _EntryEditSheetState();
+}
+
+class _EntryEditSheetState extends ConsumerState<_EntryEditSheet> {
+  late double _hours;
+  DateTime? _newDate;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hours = widget.entry.plannedHours;
+    _newDate = widget.entry.plannedDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = widget.isDark;
+    final accent = isDark ? DarkColors.primary : LightColors.primary;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: 24, right: 24, top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? DarkColors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Text('✏️', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                widget.entry.chapterName,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 20),
+
+          // Hours slider
+          Text('Planned hours: ${_hours.toStringAsFixed(1)}h',
+              style: theme.textTheme.labelLarge),
+          const SizedBox(height: 6),
+          Slider(
+            value: _hours,
+            min: 0.5, max: 8.0, divisions: 15,
+            activeColor: accent,
+            label: '${_hours.toStringAsFixed(1)}h',
+            onChanged: (v) => setState(() => _hours = v),
+          ),
+          const SizedBox(height: 16),
+
+          // Date picker
+          Text('Session date', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _newDate ?? DateTime.now(),
+                firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null) setState(() => _newDate = picked);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? DarkColors.surfaceVariant : LightColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? DarkColors.outline : LightColors.outline),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today_rounded, size: 16, color: accent),
+                  const SizedBox(width: 10),
+                  Text(
+                    _newDate != null
+                        ? DateFormat('EEE, d MMM yyyy').format(_newDate!)
+                        : 'Pick a date',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const Spacer(),
+                  Icon(Icons.chevron_right, size: 18,
+                      color: isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Save
+          FilledButton(
+            onPressed: _saving ? null : () async {
+              setState(() => _saving = true);
+              await ref.read(planProvider.notifier).editPlanEntry(
+                widget.entry.id,
+                newDate: _newDate,
+                newHours: _hours,
+              );
+              if (mounted) Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              backgroundColor: accent,
+            ),
+            child: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                : const Text('Save Changes'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 44)),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -242,9 +549,29 @@ class _EntryTile extends StatelessWidget {
 
   Color _subjectColor() {
     switch (entry.subjectName) {
+      // ── JEE / NEET ──────────────────────────────────────────────────────
       case 'Physics': return isDark ? DarkColors.physics : LightColors.physics;
       case 'Chemistry': return isDark ? DarkColors.chemistry : LightColors.chemistry;
       case 'Mathematics': return isDark ? DarkColors.mathematics : LightColors.mathematics;
+      // ── CA Final (6 papers, each gets a distinct semantic colour) ────────
+      // Paper 1 – Financial Reporting: teal (reporting / Ind AS)
+      case 'Paper 1: Financial Reporting':
+        return isDark ? const Color(0xFF00BCD4) : const Color(0xFF00838F);
+      // Paper 2 – Advanced Financial Management: amber/gold (money/markets)
+      case 'Paper 2: Advanced Financial Management':
+        return isDark ? const Color(0xFFFFB300) : const Color(0xFFE65100);
+      // Paper 3 – Advanced Auditing & Professional Ethics: deep purple (compliance)
+      case 'Paper 3: Advanced Auditing & Professional Ethics':
+        return isDark ? const Color(0xFFAB47BC) : const Color(0xFF6A1B9A);
+      // Paper 4 – Direct Tax & International Taxation: orange (taxation fire)
+      case 'Paper 4: Direct Tax Laws & International Taxation':
+        return isDark ? const Color(0xFFEF5350) : const Color(0xFFC62828);
+      // Paper 5 – Indirect Tax Laws: deep orange (GST)
+      case 'Paper 5: Indirect Tax Laws':
+        return isDark ? const Color(0xFFFF7043) : const Color(0xFFBF360C);
+      // Paper 6 – IBS: indigo (integrated / holistic)
+      case 'Paper 6: Integrated Business Solutions (IBS)':
+        return isDark ? const Color(0xFF5C6BC0) : const Color(0xFF283593);
       default: return isDark ? DarkColors.biology : LightColors.biology;
     }
   }
