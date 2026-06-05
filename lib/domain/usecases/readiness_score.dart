@@ -263,7 +263,7 @@ class ReadinessCalculator {
 
       // Overwrite today's snapshot if one exists
       final existing = await db.readinessSnapshotSchemas
-          .filter()
+          .where()
           .dateBetween(
             today,
             today.add(const Duration(hours: 23, minutes: 59)),
@@ -286,7 +286,7 @@ class ReadinessCalculator {
         // Prune old snapshots (keep last 90 days)
         final cutoff = DateTime.now().subtract(const Duration(days: 90));
         await db.readinessSnapshotSchemas
-            .filter()
+            .where()
             .dateLessThan(cutoff)
             .deleteAll();
       });
@@ -302,7 +302,7 @@ class ReadinessCalculator {
       final db = IsarService.db;
       final since = DateTime.now().subtract(Duration(days: days));
       return db.readinessSnapshotSchemas
-          .filter()
+          .where()
           .dateGreaterThan(since)
           .sortByDate()
           .findAll();

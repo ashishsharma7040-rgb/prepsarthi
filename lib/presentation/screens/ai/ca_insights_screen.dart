@@ -72,6 +72,8 @@ class _CaInsightsScreenState extends ConsumerState<CaInsightsScreen> {
   String _selectedFilter = 'All Papers';
   // Populated in initState from the persisted user caAttempt + examYear.
   String _selectedAttempt = 'May 2026';
+  // Attempt list: populated in initState via _buildAttemptList()
+  List<String> _attempts = [];
 
   final List<String> _filters = [
     'All Papers',
@@ -99,6 +101,7 @@ class _CaInsightsScreenState extends ConsumerState<CaInsightsScreen> {
   @override
   void initState() {
     super.initState();
+    _attempts = _buildAttemptList();
     // Pre-select the attempt that matches the student's saved onboarding choice.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = ref.read(authProvider);

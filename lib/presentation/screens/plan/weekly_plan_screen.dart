@@ -142,6 +142,9 @@ class _DaySection extends ConsumerStatefulWidget {
     final n = DateTime.now();
     return day.year == n.year && day.month == n.month && day.day == n.day;
   }
+
+  @override
+  ConsumerState<_DaySection> createState() => _DaySectionState();
 }
 
 class _DaySectionState extends ConsumerState<_DaySection> {

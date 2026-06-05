@@ -11,8 +11,10 @@
 //  6. Mock test Sundays from week 4
 //  7. Spaced revision scheduling (7, 21, 45 days)
 
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:isar/isar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/local/isar/isar_service.dart';
 
 class GeneratePlanUseCase {

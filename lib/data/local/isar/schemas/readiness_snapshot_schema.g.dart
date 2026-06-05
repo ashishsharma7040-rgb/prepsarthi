@@ -524,7 +524,7 @@ extension ReadinessSnapshotSchemaQueryWhereSortThenBy on QueryBuilder<
 
 extension ReadinessSnapshotSchemaQueryWhereDistinct on QueryBuilder<
     ReadinessSnapshotSchema, ReadinessSnapshotSchema, QDistinct> {
-  QueryBuilder<ReadinessSnapshotSchema, ReadinessSnapshotSchema, QAfterDistinct>
+  QueryBuilder<ReadinessSnapshotSchema, ReadinessSnapshotSchema, QDistinct>
       distinctByGrade({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'grade', caseSensitive: caseSensitive);
