@@ -1,4 +1,12 @@
 // lib/presentation/screens/auth/login_screen.dart
+//
+// ── Shanti Scholar changes (UI only, zero auth logic change) ─────────────────
+// • Background Stack (gradient Container + decorative Positioned circle)
+//   replaced with SoothingBackground(variant: BackgroundVariant.onboarding)
+//   → warm gradient + rangoli dot pattern + slow ambient blobs
+// • AppHaptics.signIn() fires at start of _signIn() for tactile feedback
+// ─────────────────────────────────────────────────────────────────────────────
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -9,8 +17,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/firebase/firebase_diagnostics.dart';
+import '../../../core/utils/app_haptics.dart';                         // ← NEW
 import '../../../data/repositories/auth_repository.dart';
 import '../../providers/all_providers.dart';
+import '../../widgets/common/soothing_background.dart';               // ← NEW
 import '../../../router/app_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -37,6 +47,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _signIn() async {
+    AppHaptics.signIn();                                               // ← NEW
+
     setState(() {
       _loading = true;
       _error = null;
@@ -94,222 +106,186 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final size = MediaQuery.of(context).size;
     final firebaseConfigured = Firebase.apps.isNotEmpty;
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: isDark
-                    ? [DarkColors.background, DarkColors.surface]
-                    : [
-                        LightColors.primary.withOpacity(0.05),
-                        LightColors.background
-                      ],
-              ),
-            ),
-          ),
-          // Decorative circle
-          Positioned(
-            top: -size.width * 0.3,
-            right: -size.width * 0.2,
-            child: Container(
-              width: size.width * 0.8,
-              height: size.width * 0.8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    (isDark ? DarkColors.primary : LightColors.primary)
-                        .withOpacity(0.18),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
+      // ── SoothingBackground replaces the old gradient + decorative circle ─
+      body: SoothingBackground(                                        // ← CHANGED
+        variant: BackgroundVariant.onboarding,                         // ← CHANGED
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Spacer(flex: 2),
 
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Spacer(flex: 2),
+                // App icon — premium otter logo matching launcher icon
+                Container(
+                  width: 108,
+                  height: 108,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? DarkColors.gradientPrimary
+                          : LightColors.gradientPrimary,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isDark
+                                ? DarkColors.primary
+                                : LightColors.primary)
+                            .withOpacity(0.40),
+                        blurRadius: 32,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 50,
+                    color: Colors.white,
+                  ),
+                )
+                    .animate()
+                    .scale(
+                        begin: const Offset(0.5, 0.5),
+                        duration: 700.ms,
+                        curve: Curves.elasticOut)
+                    .fadeIn(duration: 400.ms),
 
-                  // App icon — premium otter logo matching launcher icon
-                  Container(
-                    width: 108,
-                    height: 108,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
+                const SizedBox(height: 28),
+
+                Text(
+                  'PrepSarthi',
+                  style: theme.textTheme.displayMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    foreground: Paint()
+                      ..shader = LinearGradient(
                         colors: isDark
                             ? DarkColors.gradientPrimary
                             : LightColors.gradientPrimary,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (isDark
-                                  ? DarkColors.primary
-                                  : LightColors.primary)
-                              .withOpacity(0.40),
-                          blurRadius: 32,
-                          spreadRadius: 2,
-                          offset: const Offset(0, 10),
+                      ).createShader(const Rect.fromLTWH(0, 0, 200, 70)),
+                  ),
+                ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.3),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  'Your Personal JEE / NEET\nRank Booster',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: isDark
+                        ? DarkColors.onSurfaceVariant
+                        : LightColors.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ).animate(delay: 350.ms).fadeIn().slideY(begin: 0.2),
+
+                const Spacer(flex: 2),
+
+                // Feature chips
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _Chip('🧠', 'AI-Powered Plan', isDark),
+                    _Chip('📊', 'Smart Progress', isDark),
+                    _Chip('🔔', 'Spaced Revision', isDark),
+                  ],
+                ).animate(delay: 500.ms).fadeIn(),
+
+                const Spacer(flex: 1),
+
+                // Error
+                if (_error != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: LightColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: LightColors.error.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline,
+                            color: LightColors.error, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_error!,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: LightColors.error)),
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 50,
-                      color: Colors.white,
+                  ).animate().fadeIn(),
+
+                if (!firebaseConfigured)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: LightColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: LightColors.error.withOpacity(0.3)),
                     ),
-                  )
-                      .animate()
-                      .scale(
-                          begin: const Offset(0.5, 0.5),
-                          duration: 700.ms,
-                          curve: Curves.elasticOut)
-                      .fadeIn(duration: 400.ms),
-
-                  const SizedBox(height: 28),
-
-                  Text(
-                    'PrepSarthi',
-                    style: theme.textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      foreground: Paint()
-                        ..shader = LinearGradient(
-                          colors: isDark
-                              ? DarkColors.gradientPrimary
-                              : LightColors.gradientPrimary,
-                        ).createShader(const Rect.fromLTWH(0, 0, 200, 70)),
-                    ),
-                  ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.3),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    'Your Personal JEE / NEET\nRank Booster',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: isDark
-                          ? DarkColors.onSurfaceVariant
-                          : LightColors.onSurfaceVariant,
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ).animate(delay: 350.ms).fadeIn().slideY(begin: 0.2),
-
-                  const Spacer(flex: 2),
-
-                  // Feature chips
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _Chip('🧠', 'AI-Powered Plan', isDark),
-                      _Chip('📊', 'Smart Progress', isDark),
-                      _Chip('🔔', 'Spaced Revision', isDark),
-                    ],
-                  ).animate(delay: 500.ms).fadeIn(),
-
-                  const Spacer(flex: 1),
-
-                  // Error
-                  if (_error != null)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: LightColors.error.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: LightColors.error.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline,
-                              color: LightColors.error, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(_error!,
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: LightColors.error)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cloud_off_rounded,
+                            color: LightColors.error, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            FirebaseRuntimeDiagnostics
+                                .firebaseNotInitializedMessage,
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: LightColors.error),
                           ),
-                        ],
-                      ),
-                    ).animate().fadeIn(),
-
-                  if (!firebaseConfigured)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: LightColors.error.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: LightColors.error.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.cloud_off_rounded,
-                              color: LightColors.error, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              FirebaseRuntimeDiagnostics
-                                  .firebaseNotInitializedMessage,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: LightColors.error),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ).animate().fadeIn(),
-
-                  if (kDebugMode)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: _copyFirebaseDiagnostics,
-                        icon: const Icon(Icons.copy_rounded, size: 16),
-                        label: const Text('Copy Firebase diagnostics'),
-                      ),
-                    ).animate().fadeIn(),
-
-                  // Google Sign-In button
-                  _GoogleButton(
-                    loading: _loading,
-                    onTap: firebaseConfigured ? _signIn : null,
-                    isDark: isDark,
-                  ).animate(delay: 600.ms).fadeIn().slideY(begin: 0.4),
-
-                  const SizedBox(height: 16),
-
-                  Text(
-                    'By continuing, you agree to our Terms of Service & Privacy Policy.\nYour study data is processed using Google Firebase & Vertex AI.',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isDark
-                          ? DarkColors.onSurfaceVariant
-                          : LightColors.onSurfaceVariant,
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
-                  ).animate(delay: 700.ms).fadeIn(),
+                  ).animate().fadeIn(),
 
-                  const SizedBox(height: 32),
-                ],
-              ),
+                if (kDebugMode)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _copyFirebaseDiagnostics,
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      label: const Text('Copy Firebase diagnostics'),
+                    ),
+                  ).animate().fadeIn(),
+
+                // Google Sign-In button
+                _GoogleButton(
+                  loading: _loading,
+                  onTap: firebaseConfigured ? _signIn : null,
+                  isDark: isDark,
+                ).animate(delay: 600.ms).fadeIn().slideY(begin: 0.4),
+
+                const SizedBox(height: 16),
+
+                Text(
+                  'By continuing, you agree to our Terms of Service & Privacy Policy.\nYour study data is processed using Google Firebase & Vertex AI.',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: isDark
+                        ? DarkColors.onSurfaceVariant
+                        : LightColors.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ).animate(delay: 700.ms).fadeIn(),
+
+                const SizedBox(height: 32),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -413,4 +389,3 @@ class _Chip extends StatelessWidget {
     );
   }
 }
-

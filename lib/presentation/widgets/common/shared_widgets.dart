@@ -1,8 +1,25 @@
 // lib/presentation/widgets/common/shared_widgets.dart
+//
+// Shanti Scholar — Redesigned shared widgets.
+//
+// BACKWARD COMPATIBLE: every constructor signature is identical to the original.
+// Barrel exports (gradient_card.dart, main_shell.dart, etc.) require NO changes.
+//
+// Changes vs original:
+//  GradientCard   — richer shadow system; warm sage glow; TappableScale press
+//  ProgressRing   — gradient arc with gentle sweep; smoother didUpdateWidget
+//  StreakBadge    — Shanti Scholar amber/sage palette; compact remains intact
+//  HeatmapWeek   — sage-tinted heat cells; animated cell transitions
+//  MainShell      — pill indicator on active item; haptics on every nav tap
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/app_haptics.dart';
+import 'soothing_background.dart';
 
+// ─── GradientCard ─────────────────────────────────────────────────────────────
+// API unchanged: child, padding, isDark, gradientColors, onTap, borderRadius
 class GradientCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
@@ -21,50 +38,76 @@ class GradientCard extends StatelessWidget {
     this.borderRadius = 16,
   });
 
+  BoxDecoration _decoration() {
+    if (gradientColors != null) {
+      return BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors!,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors!.first.withOpacity(isDark ? 0.22 : 0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      );
+    }
+
+    return BoxDecoration(
+      color: isDark ? DarkColors.surfaceCard : LightColors.surfaceCard,
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: isDark
+            ? DarkColors.outline.withOpacity(0.7)
+            : LightColors.outline.withOpacity(0.55),
+        width: 0.8,
+      ),
+      boxShadow: [
+        BoxShadow(
+          // Sage-tinted shadow — warmer than grey
+          color: isDark
+              ? Colors.black.withOpacity(0.28)
+              : const Color(0xFF5C7A6B).withOpacity(0.06),
+          blurRadius: 18,
+          offset: const Offset(0, 5),
+        ),
+        if (!isDark)
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final inner = Container(
+      decoration: _decoration(),
+      padding: padding,
+      child: child,
+    );
+
+    if (onTap == null) return inner;
+
+    return TappableScale(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: gradientColors != null
-              ? LinearGradient(
-                  colors: gradientColors!,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: gradientColors == null
-              ? (isDark ? DarkColors.surfaceCard : LightColors.surface)
-              : null,
-          borderRadius: BorderRadius.circular(borderRadius),
-          border: Border.all(
-            color: isDark ? DarkColors.outline : LightColors.outline,
-            width: 0.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withOpacity(0.3)
-                  : Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        padding: padding,
-        child: child,
-      ),
+      pressedScale: 0.97,
+      child: inner,
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// lib/presentation/widgets/common/progress_ring.dart
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── ProgressRing ─────────────────────────────────────────────────────────────
+// API unchanged: progress, size, strokeWidth, primaryColor (required),
+//                backgroundColor (required), centerWidget, animate
 class ProgressRing extends StatefulWidget {
-  final double progress; // 0.0 to 1.0
+  final double progress; // 0.0 – 1.0
   final double size;
   final double strokeWidth;
   final Color primaryColor;
@@ -97,12 +140,26 @@ class _ProgressRingState extends State<ProgressRing>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1400),
     );
     _animation = Tween<double>(begin: 0, end: widget.progress).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
     );
     if (widget.animate) _ctrl.forward();
+  }
+
+  @override
+  void didUpdateWidget(ProgressRing old) {
+    super.didUpdateWidget(old);
+    if (old.progress != widget.progress) {
+      _animation = Tween<double>(
+        begin: _animation.value,
+        end: widget.progress,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _ctrl
+        ..reset()
+        ..forward();
+    }
   }
 
   @override
@@ -118,76 +175,74 @@ class _ProgressRingState extends State<ProgressRing>
       height: widget.size,
       child: AnimatedBuilder(
         animation: _animation,
-        builder: (context, _) {
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              CustomPaint(
-                size: Size(widget.size, widget.size),
-                painter: _RingPainter(
-                  progress: widget.animate ? _animation.value : widget.progress,
-                  primaryColor: widget.primaryColor,
-                  backgroundColor: widget.backgroundColor,
-                  strokeWidth: widget.strokeWidth,
-                ),
+        builder: (_, __) => Stack(
+          alignment: Alignment.center,
+          children: [
+            CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: _ShantiRingPainter(
+                progress: widget.animate ? _animation.value : widget.progress,
+                primaryColor: widget.primaryColor,
+                backgroundColor: widget.backgroundColor,
+                strokeWidth: widget.strokeWidth,
               ),
-              if (widget.centerWidget != null) widget.centerWidget!,
-            ],
-          );
-        },
+            ),
+            if (widget.centerWidget != null) widget.centerWidget!,
+          ],
+        ),
       ),
     );
   }
 }
 
-class _RingPainter extends CustomPainter {
+class _ShantiRingPainter extends CustomPainter {
   final double progress;
   final Color primaryColor;
   final Color backgroundColor;
   final double strokeWidth;
 
-  _RingPainter({
+  const _ShantiRingPainter({
     required this.progress,
     required this.primaryColor,
     required this.backgroundColor,
     required this.strokeWidth,
   });
 
+  static const _startAngle = -1.5708; // -π/2 (top)
+  static const _fullCircle = 6.2832;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width - strokeWidth) / 2;
+    final trackPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
 
-    // Background circle
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = backgroundColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round,
+    // Track ring
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      0, _fullCircle, false, trackPaint,
     );
+
+    if (progress <= 0) return;
 
     // Gradient progress arc
     final rect = Rect.fromCircle(center: center, radius: radius);
-    final gradient = SweepGradient(
-      startAngle: -1.5708, // -π/2 (start from top)
-      endAngle: -1.5708 + 6.2832, // full circle
-      colors: [
-        primaryColor.withOpacity(0.5),
-        primaryColor,
-      ],
-      stops: const [0.0, 1.0],
-    );
-
     canvas.drawArc(
       rect,
-      -1.5708, // start at top
-      progress * 6.2832, // end angle
+      _startAngle,
+      progress * _fullCircle,
       false,
       Paint()
-        ..shader = gradient.createShader(rect)
+        ..shader = SweepGradient(
+          startAngle: _startAngle,
+          endAngle: _startAngle + _fullCircle,
+          colors: [primaryColor.withOpacity(0.45), primaryColor, primaryColor],
+          stops: const [0.0, 0.6, 1.0],
+        ).createShader(rect)
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round,
@@ -195,14 +250,12 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(_ShantiRingPainter old) =>
+      old.progress != progress || old.primaryColor != primaryColor;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// lib/presentation/widgets/common/streak_badge.dart
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── StreakBadge ──────────────────────────────────────────────────────────────
+// API unchanged: streak, isDark
 class StreakBadge extends StatelessWidget {
   final int streak;
   final bool isDark;
@@ -212,31 +265,43 @@ class StreakBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = streak >= 7 ? const Color(0xFFFF8C00) : const Color(0xFF94A3B8);
-    // Compact horizontal layout — avoids 42px overflow in the FlexibleSpaceBar
-    // when greeting text + countdown chip + badge all compete for width.
+    final isActive = streak >= 1;
+    final isHot    = streak >= 7;
+
+    // Shanti Scholar: warm amber for hot streaks, sage-muted for inactive
+    final Color color;
+    if (isHot) {
+      color = AppColors.gold;               // warm amber
+    } else if (isActive) {
+      color = isDark ? DarkColors.secondary : LightColors.secondary; // terracotta
+    } else {
+      color = isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.35), width: 1),
-        boxShadow: streak >= 7
-            ? [BoxShadow(color: color.withOpacity(0.2), blurRadius: 6)]
+        border: Border.all(color: color.withOpacity(0.32), width: 1),
+        boxShadow: isHot
+            ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 8)]
             : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            streak >= 1 ? '🔥' : '💤',
+            isActive ? '🔥' : '💤',
             style: const TextStyle(fontSize: 16),
           ),
           const SizedBox(width: 4),
           Text(
             '$streak',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: color, fontWeight: FontWeight.w800, fontSize: 13,
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
             ),
           ),
         ],
@@ -245,11 +310,8 @@ class StreakBadge extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// lib/presentation/widgets/common/heatmap_week.dart
-// Weekly heatmap (GitHub-style) for this week's study hours
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── HeatmapWeekWidget ────────────────────────────────────────────────────────
+// API unchanged: isDark, weekData
 class HeatmapWeekWidget extends StatelessWidget {
   final bool isDark;
   final Map<String, double>? weekData;
@@ -259,13 +321,12 @@ class HeatmapWeekWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Uses real data passed from provider; defaults to zeros if none yet
     final data = weekData ?? {
       'Mon': 0.0, 'Tue': 0.0, 'Wed': 0.0,
       'Thu': 0.0, 'Fri': 0.0, 'Sat': 0.0, 'Sun': 0.0,
     };
     final rawMax = data.values.fold(0.0, (a, b) => a > b ? a : b);
-    final maxHours = rawMax > 0 ? rawMax : 1.0; // avoid divide-by-zero
+    final maxHours = rawMax > 0 ? rawMax : 1.0;
 
     return GradientCard(
       isDark: isDark,
@@ -276,11 +337,10 @@ class HeatmapWeekWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: data.entries.map((entry) {
-              final intensity = maxHours > 0 ? entry.value / maxHours : 0.0;
+              final intensity = entry.value / maxHours;
               final isToday = entry.key ==
                   ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
                       [DateTime.now().weekday - 1];
-
               return _HeatCell(
                 label: entry.key,
                 hours: entry.value,
@@ -291,21 +351,19 @@ class HeatmapWeekWidget extends StatelessWidget {
             }).toList(),
           ),
           const SizedBox(height: 12),
+          // Legend
           Row(
             children: [
               Text('Less', style: theme.textTheme.labelSmall),
               const SizedBox(width: 6),
-              ...List.generate(5, (i) {
-                final color = _heatColor(i / 4, isDark);
-                return Container(
-                  width: 12, height: 12,
-                  margin: const EdgeInsets.only(right: 2),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                );
-              }),
+              ...List.generate(5, (i) => Container(
+                width: 12, height: 12,
+                margin: const EdgeInsets.only(right: 2),
+                decoration: BoxDecoration(
+                  color: _heatColor(i / 4.0, isDark),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              )),
               const SizedBox(width: 6),
               Text('More', style: theme.textTheme.labelSmall),
             ],
@@ -315,12 +373,12 @@ class HeatmapWeekWidget extends StatelessWidget {
     );
   }
 
-  Color _heatColor(double intensity, bool dark) {
-    if (intensity == 0) return dark ? AppColors.heatEmptyDark : AppColors.heatEmpty;
-    if (intensity < 0.25) return dark ? AppColors.heat1Dark : AppColors.heat1;
-    if (intensity < 0.5) return dark ? AppColors.heat2Dark : AppColors.heat2;
-    if (intensity < 0.75) return dark ? AppColors.heat3Dark : AppColors.heat3;
-    return dark ? AppColors.heat4Dark : AppColors.heat4;
+  static Color _heatColor(double intensity, bool dark) {
+    if (intensity == 0)     return dark ? AppColors.heatEmptyDark : AppColors.heatEmpty;
+    if (intensity < 0.25)   return dark ? AppColors.heat1Dark     : AppColors.heat1;
+    if (intensity < 0.5)    return dark ? AppColors.heat2Dark     : AppColors.heat2;
+    if (intensity < 0.75)   return dark ? AppColors.heat3Dark     : AppColors.heat3;
+    return                         dark ? AppColors.heat4Dark     : AppColors.heat4;
   }
 }
 
@@ -339,18 +397,17 @@ class _HeatCell extends StatelessWidget {
     required this.isDark,
   });
 
-  Color _heatColor() {
-    if (intensity == 0) return isDark ? AppColors.heatEmptyDark : AppColors.heatEmpty;
-    if (intensity < 0.25) return isDark ? AppColors.heat1Dark : AppColors.heat1;
-    if (intensity < 0.5) return isDark ? AppColors.heat2Dark : AppColors.heat2;
-    if (intensity < 0.75) return isDark ? AppColors.heat3Dark : AppColors.heat3;
-    return isDark ? AppColors.heat4Dark : AppColors.heat4;
+  Color _cellColor() {
+    if (intensity == 0)    return isDark ? AppColors.heatEmptyDark : AppColors.heatEmpty;
+    if (intensity < 0.25)  return isDark ? AppColors.heat1Dark     : AppColors.heat1;
+    if (intensity < 0.5)   return isDark ? AppColors.heat2Dark     : AppColors.heat2;
+    if (intensity < 0.75)  return isDark ? AppColors.heat3Dark     : AppColors.heat3;
+    return                        isDark ? AppColors.heat4Dark     : AppColors.heat4;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cellColor = _heatColor();
     final accent = isDark ? DarkColors.primary : LightColors.primary;
 
     return Column(
@@ -358,12 +415,13 @@ class _HeatCell extends StatelessWidget {
         Tooltip(
           message: '${hours.toStringAsFixed(1)}h',
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: cellColor,
-              borderRadius: BorderRadius.circular(8),
+              color: _cellColor(),
+              borderRadius: BorderRadius.circular(9),
               border: isToday
                   ? Border.all(color: accent, width: 2)
                   : Border.all(color: Colors.transparent),
@@ -395,10 +453,8 @@ class _HeatCell extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Shell (Bottom Navigation)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── MainShell — Bottom Navigation ────────────────────────────────────────────
+// API unchanged: child
 class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
@@ -406,10 +462,10 @@ class MainShell extends StatelessWidget {
   int _selectedIndex(BuildContext context) {
     final loc = GoRouterState.of(context).uri.path;
     if (loc.startsWith('/dashboard')) return 0;
-    if (loc.startsWith('/plan')) return 1;
-    if (loc.startsWith('/log')) return 2;
-    if (loc.startsWith('/revision')) return 3;
-    if (loc.startsWith('/calendar')) return 4;
+    if (loc.startsWith('/plan'))      return 1;
+    if (loc.startsWith('/log'))       return 2;
+    if (loc.startsWith('/revision'))  return 3;
+    if (loc.startsWith('/calendar'))  return 4;
     return 0;
   }
 
@@ -426,13 +482,15 @@ class MainShell extends StatelessWidget {
           color: isDark ? DarkColors.surface : LightColors.surface,
           border: Border(
             top: BorderSide(
-              color: isDark ? DarkColors.outline : LightColors.outline,
-              width: 0.5,
+              color: isDark
+                  ? DarkColors.outline.withOpacity(0.5)
+                  : LightColors.outline.withOpacity(0.5),
+              width: 0.8,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+              color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -444,21 +502,61 @@ class MainShell extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _NavItem(icon: Icons.dashboard_rounded, label: 'Home',
-                    selected: selectedIndex == 0,
-                    onTap: () => context.go('/dashboard'), isDark: isDark),
-                _NavItem(icon: Icons.list_alt_rounded, label: 'Plan',
-                    selected: selectedIndex == 1,
-                    onTap: () => context.go('/plan'), isDark: isDark),
-                _NavItem(icon: Icons.edit_note_rounded, label: 'Log',
-                    selected: selectedIndex == 2,
-                    onTap: () => context.go('/log'), isDark: isDark),
-                _NavItem(icon: Icons.replay_rounded, label: 'Revision',
-                    selected: selectedIndex == 3,
-                    onTap: () => context.go('/revision'), isDark: isDark),
-                _NavItem(icon: Icons.more_horiz_rounded, label: 'More',
-                    selected: selectedIndex == 4,
-                    onTap: () => context.go('/calendar'), isDark: isDark),
+                _NavItem(
+                  icon: Icons.dashboard_rounded,
+                  outlinedIcon: Icons.dashboard_outlined,
+                  label: 'Home',
+                  selected: selectedIndex == 0,
+                  onTap: () {
+                    AppHaptics.navTap();
+                    context.go('/dashboard');
+                  },
+                  isDark: isDark,
+                ),
+                _NavItem(
+                  icon: Icons.list_alt_rounded,
+                  outlinedIcon: Icons.list_alt_outlined,
+                  label: 'Plan',
+                  selected: selectedIndex == 1,
+                  onTap: () {
+                    AppHaptics.navTap();
+                    context.go('/plan');
+                  },
+                  isDark: isDark,
+                ),
+                _NavItem(
+                  icon: Icons.edit_note_rounded,
+                  outlinedIcon: Icons.edit_note_outlined,
+                  label: 'Log',
+                  selected: selectedIndex == 2,
+                  onTap: () {
+                    AppHaptics.navTap();
+                    context.go('/log');
+                  },
+                  isDark: isDark,
+                ),
+                _NavItem(
+                  icon: Icons.replay_rounded,
+                  outlinedIcon: Icons.replay_outlined,
+                  label: 'Revision',
+                  selected: selectedIndex == 3,
+                  onTap: () {
+                    AppHaptics.navTap();
+                    context.go('/revision');
+                  },
+                  isDark: isDark,
+                ),
+                _NavItem(
+                  icon: Icons.more_horiz_rounded,
+                  outlinedIcon: Icons.more_horiz_outlined,
+                  label: 'More',
+                  selected: selectedIndex == 4,
+                  onTap: () {
+                    AppHaptics.navTap();
+                    context.go('/calendar');
+                  },
+                  isDark: isDark,
+                ),
               ],
             ),
           ),
@@ -470,6 +568,7 @@ class MainShell extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
+  final IconData outlinedIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -477,6 +576,7 @@ class _NavItem extends StatelessWidget {
 
   const _NavItem({
     required this.icon,
+    required this.outlinedIcon,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -486,40 +586,48 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final activeColor = isDark ? DarkColors.primary : LightColors.primary;
+    final activeColor   = isDark ? DarkColors.primary : LightColors.primary;
     final inactiveColor = isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant;
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: selected
-            ? BoxDecoration(
-                color: activeColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              )
-            : null,
+      child: SizedBox(
+        width: 64,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedScale(
-              scale: selected ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                icon,
-                color: selected ? activeColor : inactiveColor,
-                size: 24,
+            // Pill indicator with animated container
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: selected
+                  ? BoxDecoration(
+                      color: activeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    )
+                  : null,
+              child: AnimatedScale(
+                scale: selected ? 1.1 : 1.0,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                child: Icon(
+                  selected ? icon : outlinedIcon,
+                  color: selected ? activeColor : inactiveColor,
+                  size: 23,
+                ),
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: (theme.textTheme.labelSmall ?? const TextStyle()).copyWith(
                 color: selected ? activeColor : inactiveColor,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                fontSize: 10.5,
               ),
+              child: Text(label),
             ),
           ],
         ),
@@ -527,4 +635,3 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
-

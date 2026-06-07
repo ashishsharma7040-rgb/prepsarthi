@@ -1,11 +1,21 @@
 // lib/presentation/screens/pomodoro/pomodoro_timer_screen.dart
+//
+// ── Shanti Scholar changes (UI only, zero timer logic change) ────────────────
+// • AppHaptics added to: start, pause, reset, skip controls
+// • fontFamily: 'Poppins' (hardcoded) → GoogleFonts.nunito (theme-consistent)
+// • _showSessionCompleteSnack color: LightColors.learned → theme primary
+//   (soothing sage green instead of old teal)
+// ─────────────────────────────────────────────────────────────────────────────
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';                       // ← NEW
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/app_haptics.dart';                         // ← NEW
 import '../../../data/local/isar/schemas/schemas.dart';
 import '../../providers/all_providers.dart';
 
@@ -123,7 +133,6 @@ class PomodoroNotifier extends Notifier<PomodoroState> {
 
     if (state.phase == PomodoroPhase.focus) {
       final newCompleted = state.completedSessions + 1;
-      // Log auto-session (fire-and-forget — void method can't await)
       if (state.activeChapter != null && state.activeSubject != null) {
         ref.read(studyLogProvider.notifier).logSession(
           chapterName: state.activeChapter!,
@@ -135,7 +144,6 @@ class PomodoroNotifier extends Notifier<PomodoroState> {
         ).ignore();
       }
 
-      // Long break every N cycles
       final isLongBreak = newCompleted % _cycles == 0;
       state = state.copyWith(
         phase: isLongBreak ? PomodoroPhase.longBreak : PomodoroPhase.shortBreak,
@@ -144,7 +152,6 @@ class PomodoroNotifier extends Notifier<PomodoroState> {
         isRunning: false,
       );
     } else {
-      // Break over → back to focus
       state = state.copyWith(
         phase: PomodoroPhase.focus,
         secondsLeft: _workSeconds,
@@ -152,7 +159,6 @@ class PomodoroNotifier extends Notifier<PomodoroState> {
       );
     }
   }
-
 }
 
 final pomodoroProvider =
@@ -162,7 +168,6 @@ final pomodoroProvider =
 // Screen
 // ─────────────────────────────────────────────────────────────────────────────
 class PomodoroTimerScreen extends ConsumerStatefulWidget {
-  /// Optionally pre-fills the chapter & subject when launched from ChapterDetailScreen.
   final String? initialChapter;
   final String? initialSubject;
 
@@ -193,11 +198,9 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
 
-    // Pre-fill chapter/subject if launched from ChapterDetailScreen
     if (widget.initialChapter != null && widget.initialSubject != null) {
       _selectedChapter = widget.initialChapter;
       _selectedSubject = widget.initialSubject;
-      // Notify the notifier after first frame so providers are ready
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(pomodoroProvider.notifier).selectChapter(
               widget.initialChapter!,
@@ -226,12 +229,13 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
     final totalSeconds = _totalSeconds(pomo.phase, settings);
     final progress = pomo.progressRatio(totalSeconds);
 
-    // Watch for session completion
+    // Watch for session completion → haptic celebrate + snack
     ref.listen(pomodoroProvider, (prev, next) {
       if (prev?.phase == PomodoroPhase.focus &&
           next.phase != PomodoroPhase.focus &&
           next.completedSessions > (prev?.completedSessions ?? 0)) {
         _confetti.play();
+        AppHaptics.timerEnd();                                         // ← NEW
         _showSessionCompleteSnack(context, next.completedSessions);
       }
     });
@@ -239,7 +243,7 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // ── Background gradient by phase ─────────────────────────────────
+          // ── Background gradient by phase (intentional — phase-aware) ─────
           AnimatedContainer(
             duration: const Duration(milliseconds: 800),
             decoration: BoxDecoration(
@@ -276,7 +280,10 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
                     children: [
                       IconButton(
                         icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          AppHaptics.light();                          // ← NEW
+                          Navigator.pop(context);
+                        },
                       ),
                       Expanded(
                         child: Text('Pomodoro Timer',
@@ -285,7 +292,10 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
                       ),
                       IconButton(
                         icon: const Icon(Icons.settings_outlined),
-                        onPressed: () => _showSettingsSheet(context, settings),
+                        onPressed: () {
+                          AppHaptics.light();                          // ← NEW
+                          _showSettingsSheet(context, settings);
+                        },
                       ),
                     ],
                   ),
@@ -353,6 +363,7 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
                     selectedSubject: _selectedSubject,
                     isDark: isDark,
                     onSelect: (chapter, subject) {
+                      AppHaptics.select();                             // ← NEW
                       setState(() {
                         _selectedChapter = chapter;
                         _selectedSubject = subject;
@@ -371,6 +382,7 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
                   phaseColor: phaseColor,
                   isDark: isDark,
                   onStart: () {
+                    AppHaptics.timerStart();                           // ← NEW
                     if (_selectedChapter == null &&
                         planState.todayEntries.isNotEmpty) {
                       final first = planState.todayEntries.first;
@@ -383,12 +395,19 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
                     }
                     ref.read(pomodoroProvider.notifier).start();
                   },
-                  onPause: () => ref.read(pomodoroProvider.notifier).pause(),
+                  onPause: () {
+                    AppHaptics.timerPause();                           // ← NEW
+                    ref.read(pomodoroProvider.notifier).pause();
+                  },
                   onReset: () {
+                    AppHaptics.timerReset();                           // ← NEW
                     ref.read(pomodoroProvider.notifier).reset();
                     _confetti.stop();
                   },
-                  onSkip: () => ref.read(pomodoroProvider.notifier).skipPhase(),
+                  onSkip: () {
+                    AppHaptics.timerSkip();                            // ← NEW
+                    ref.read(pomodoroProvider.notifier).skipPhase();
+                  },
                 ),
 
                 const SizedBox(height: 32),
@@ -426,10 +445,12 @@ class _PomodoroTimerScreenState extends ConsumerState<PomodoroTimerScreen>
   }
 
   void _showSessionCompleteSnack(BuildContext context, int count) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('🍅 Session #$count complete! Great work!'),
-        backgroundColor: LightColors.learned,
+        // ← CHANGED: was LightColors.learned (old teal) → now sage primary
+        backgroundColor: isDark ? DarkColors.primary : LightColors.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 3),
@@ -524,8 +545,9 @@ class _CircularTimer extends StatelessWidget {
             children: [
               Text(
                 timeString,
-                style: TextStyle(
-                  fontFamily: 'Poppins',
+                // ← CHANGED: was fontFamily: 'Poppins' (hardcoded)
+                // Now uses GoogleFonts.nunito for theme consistency
+                style: GoogleFonts.nunito(
                   fontSize: size * 0.22,
                   fontWeight: FontWeight.w800,
                   color: color,
@@ -590,7 +612,7 @@ class _ArcPainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Session dots (showing progress within a cycle)
+// Session dots
 // ─────────────────────────────────────────────────────────────────────────────
 class _SessionDots extends StatelessWidget {
   final int completed;
@@ -742,7 +764,7 @@ class _ChapterSelector extends StatelessWidget {
             const SizedBox(height: 14),
             ...chapters.map((e) => ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Text('📖', style: const TextStyle(fontSize: 22)),
+              leading: const Text('📖', style: TextStyle(fontSize: 22)),
               title: Text(e.chapterName,
                   style: Theme.of(context).textTheme.titleSmall),
               subtitle: Text('${e.subjectName} • ${e.plannedHours}h'),
@@ -916,7 +938,10 @@ class _PomodoroSettingsSheet extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           FilledButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              AppHaptics.light();                                      // ← NEW
+              Navigator.pop(context);
+            },
             child: const Text('Done'),
           ),
         ],
