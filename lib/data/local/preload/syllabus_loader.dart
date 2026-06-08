@@ -2,31 +2,36 @@
 //
 // ✅ Supports: jee_main, jee_advanced, neet, both, class12_boards, ca_final
 // ✅ CA Final: ICAI NSET (New Scheme) — 6 papers, 2 groups, May/Nov attempts
-// ✅ SAFE reload: updates chapter metadata WITHOUT wiping mastery,
-//    hoursSpent, revisionCount, or any student progress.
-//    Only "Clear All Study Data" in Settings does a full wipe.
+//
+// FIXED: ensureLoadedForExam() checks by syllabusSource (not total count).
+// This is the method called during onboarding plan generation to guarantee
+// the correct syllabus is in the DB regardless of prior state.
+//
+// loadIfNeeded() is now smarter — it delegates to ensureLoadedForExam() so
+// a fresh install with no stored targetExam only loads JEE Main by default,
+// but switching to any exam later always loads the right data.
 
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
 import '../isar/isar_service.dart';
 
-// ── Asset paths ────────────────────────────────────────────────────────────
-const _jeeMainAsset  = 'assets/syllabus/jee_main_2026.json';
-const _jeeAdvAsset   = 'assets/syllabus/jee_advanced_2026.json';
-const _neetAsset     = 'assets/syllabus/neet_ug_2026.json';
-const _boardsAsset   = 'assets/syllabus/class12_boards_2026.json';
-const _caFinalAsset  = 'assets/syllabus/ca_final_2026.json'; // ✅ NEW
+// ── Asset paths ──────────────────────────────────────────────────────────────
+const _jeeMainAsset = 'assets/syllabus/jee_main_2026.json';
+const _jeeAdvAsset  = 'assets/syllabus/jee_advanced_2026.json';
+const _neetAsset    = 'assets/syllabus/neet_ug_2026.json';
+const _boardsAsset  = 'assets/syllabus/class12_boards_2026.json';
+const _caFinalAsset = 'assets/syllabus/ca_final_2026.json';
 
-// ── Syllabus source identifiers ────────────────────────────────────────────
-const kSourceJeeMain  = 'jee_main';
-const kSourceJeeAdv   = 'jee_advanced';
-const kSourceNeet     = 'neet_ug';
-const kSourceBoards   = 'class12_boards';
-const kSourceCaFinal  = 'ca_final'; // ✅ NEW
+// ── Syllabus source identifiers ──────────────────────────────────────────────
+const kSourceJeeMain = 'jee_main';
+const kSourceJeeAdv  = 'jee_advanced';
+const kSourceNeet    = 'neet_ug';
+const kSourceBoards  = 'class12_boards';
+const kSourceCaFinal = 'ca_final';
 
 class SyllabusLoader {
-  // ── Helper: resolve (asset, sourceId) pairs for a given exam target ──────
+  // ── Maps exam → list of (asset, sourceId) pairs ──────────────────────────
   static List<(String asset, String source)> _sourcesFor(String? targetExam) {
     switch (targetExam) {
       case 'jee_advanced':
@@ -34,10 +39,14 @@ class SyllabusLoader {
       case 'neet':
         return [(_neetAsset, kSourceNeet)];
       case 'both':
-        return [(_jeeMainAsset, kSourceJeeMain), (_neetAsset, kSourceNeet)];
+        // JEE Main + NEET together
+        return [
+          (_jeeMainAsset, kSourceJeeMain),
+          (_neetAsset, kSourceNeet),
+        ];
       case 'class12_boards':
         return [(_boardsAsset, kSourceBoards)];
-      case 'ca_final': // ✅ NEW
+      case 'ca_final':
         return [(_caFinalAsset, kSourceCaFinal)];
       case 'jee_main':
       default:
@@ -45,19 +54,38 @@ class SyllabusLoader {
     }
   }
 
-  // ── Public: initial seed on first launch (no-op if chapters exist) ────────
-  static Future<void> loadIfNeeded({String? targetExam}) async {
+  // ── PUBLIC: Guaranteed load for a specific exam ──────────────────────────
+  // Unlike loadIfNeeded, this checks per-syllabusSource, not total count.
+  // Call this from the generating-plan screen to ensure the right syllabus
+  // is in the DB before plan generation runs.
+  static Future<void> ensureLoadedForExam(String? targetExam) async {
     final db = IsarService.db;
-    final count = await db.chapterSchemas.count();
-    if (count > 0) return;
+    final needed = _sourcesFor(targetExam);
 
-    for (final entry in _sourcesFor(targetExam)) {
-      await _loadSource(entry.$1, entry.$2);
+    for (final entry in needed) {
+      final count = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo(entry.$2)
+          .count();
+
+      if (count == 0) {
+        // This source has never been loaded — seed it now
+        await _loadSource(entry.$1, entry.$2);
+      }
     }
-    await _seedAchievements();
+
+    // Ensure achievements are seeded (idempotent)
+    final achCount = await db.achievementSchemas.count();
+    if (achCount == 0) await _seedAchievements();
   }
 
-  // ── Public: safe metadata reload — progress NEVER touched ────────────────
+  // ── PUBLIC: Initial seed on first launch ─────────────────────────────────
+  // No-op if the target exam's chapters already exist.
+  static Future<void> loadIfNeeded({String? targetExam}) async {
+    await ensureLoadedForExam(targetExam);
+  }
+
+  // ── PUBLIC: Safe metadata reload — student progress is NEVER touched ─────
   static Future<SafeReloadResult> safeReload({String? targetExam}) async {
     int added   = 0;
     int updated = 0;
@@ -69,7 +97,6 @@ class SyllabusLoader {
 
       for (final subject in (json['subjects'] as List)) {
         final subjectName = subject['name'] as String;
-        // CA Final subjects carry paperNo; JEE/NEET use classLevel per chapter
         final paperNo = subject['paperNo'] as int? ?? 0;
         for (final ch in (subject['chapters'] as List)) {
           final name   = ch['name']   as String;
@@ -83,25 +110,24 @@ class SyllabusLoader {
                 .findFirst();
 
             if (existing == null) {
-              final newChapter = ChapterSchema()
+              final newCh = ChapterSchema()
                 ..subjectName    = subjectName
                 ..syllabusSource = source
                 ..name           = name
-                // For CA Final paperNo replaces classLevel; JEE/NEET use 'class'
                 ..classLevel     = (ch['class'] as int?) ?? paperNo
                 ..estimatedHours = (ch['estimatedHours'] as num).toDouble()
-                ..weightage      = (ch['weightage']      as num).toDouble()
-                ..difficulty     = ch['difficulty']      as int
-                ..pyqCount       = ch['pyqCount']        as int
+                ..weightage      = (ch['weightage'] as num).toDouble()
+                ..difficulty     = ch['difficulty'] as int
+                ..pyqCount       = ch['pyqCount']   as int
                 ..tags           = List<String>.from(ch['tags'] as List)
                 ..status         = 'not_started';
-              await db.chapterSchemas.put(newChapter);
+              await db.chapterSchemas.put(newCh);
               added++;
             } else {
               existing.estimatedHours = (ch['estimatedHours'] as num).toDouble();
-              existing.weightage      = (ch['weightage']      as num).toDouble();
-              existing.difficulty     = ch['difficulty']      as int;
-              existing.pyqCount       = ch['pyqCount']        as int;
+              existing.weightage      = (ch['weightage'] as num).toDouble();
+              existing.difficulty     = ch['difficulty'] as int;
+              existing.pyqCount       = ch['pyqCount']   as int;
               existing.tags           = List<String>.from(ch['tags'] as List);
               await db.chapterSchemas.put(existing);
               updated++;
@@ -114,7 +140,7 @@ class SyllabusLoader {
     return SafeReloadResult(added: added, updated: updated);
   }
 
-  // ── Private: full load for initial seed ──────────────────────────────────
+  // ── PRIVATE: Full load for initial seed ──────────────────────────────────
   static Future<void> _loadSource(String asset, String source) async {
     final raw      = await rootBundle.loadString(asset);
     final json     = jsonDecode(raw) as Map<String, dynamic>;
@@ -144,7 +170,7 @@ class SyllabusLoader {
     await db.writeTxn(() async => db.chapterSchemas.putAll(chapters));
   }
 
-  // ── Achievements seed ─────────────────────────────────────────────────────
+  // ── PRIVATE: Achievement badges seed ─────────────────────────────────────
   static Future<void> _seedAchievements() async {
     final db = IsarService.db;
     final badges = [

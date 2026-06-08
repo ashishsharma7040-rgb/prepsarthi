@@ -29,6 +29,7 @@ import '../presentation/screens/achievements/achievements_screen.dart';
 import '../presentation/widgets/common/shared_widgets.dart';
 
 import '../presentation/screens/ai/ca_insights_screen.dart';
+import '../presentation/screens/revision/today_review_screen.dart';
 
 // ─── Route paths ──────────────────────────────────────────────────────────────
 class AppRoutes {
@@ -48,6 +49,7 @@ class AppRoutes {
   static const calendar = '/calendar';
   static const log = '/log';
   static const revision = '/revision';
+  static const todayReview = '/revision/review'; // ✅ Spaced repetition daily review
 
   static const swotReport = '/ai/swot';
   static const patternReport = '/ai/pattern';
@@ -187,6 +189,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, s) => fade(s, const RevisionScheduleScreen()),
           ),
         ],
+      ),
+
+      // ── Spaced Repetition Daily Review (full-screen, outside bottom nav) ──
+      GoRoute(
+        path: AppRoutes.todayReview,
+        pageBuilder: (_, s) => slide(s, const TodayReviewScreen()),
       ),
 
       // AI (premium-gated)

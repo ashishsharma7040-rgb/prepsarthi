@@ -12,6 +12,8 @@ import 'schemas/achievement_schema.dart';
 import 'schemas/mock_test_schema.dart';
 import 'schemas/mistake_entry_schema.dart';
 import 'schemas/readiness_snapshot_schema.dart';
+// [REVIEW_CARD_STEP] After running build_runner, uncomment this import:
+// import 'schemas/review_card_schema.dart';
 
 export 'schemas/schemas.dart';
 
@@ -32,15 +34,19 @@ class IsarService {
         RevisionScheduleSchemaSchema,
         UserSettingsSchemaSchema,
         AchievementSchemaSchema,
-        MockTestSchemaSchema,        // ← TASK 1
-        MistakeEntrySchemaSchema,    // ← TASK 2
-        ReadinessSnapshotSchemaSchema, // ← HIGH #7: daily trend snapshots
+        MockTestSchemaSchema,
+        MistakeEntrySchemaSchema,
+        ReadinessSnapshotSchemaSchema,
+        // [REVIEW_CARD_STEP] After running build_runner, uncomment this line:
+        // ReviewCardSchemaSchema,
       ],
       directory: dir.path,
       name: 'prepsarthi_db',
-      // Increment schema version when fields are added to existing collections.
-      // Version 1 → 2: added MockTestSchema + MistakeEntrySchema collections.
-      // (New collections don't require migration, only field additions do.)
+      // Version history:
+      // v1 → v2: added MockTestSchema + MistakeEntrySchema
+      // v2 → v3: added ReadinessSnapshotSchema
+      // [REVIEW_CARD_STEP] When uncommenting ReviewCardSchema, increment to v4
+      //   and add: migration: (db, version) => db.writeTxn(() async {})
     );
     return _instance!;
   }
@@ -69,6 +75,7 @@ class IsarService {
       await db.mockTestSchemas.clear();
       await db.mistakeEntrySchemas.clear();
       await db.readinessSnapshotSchemas.clear();
+      // [REVIEW_CARD_STEP] After build_runner, add: await db.reviewCardSchemas.clear();
     });
   }
 }

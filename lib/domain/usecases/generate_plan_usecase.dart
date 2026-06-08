@@ -661,6 +661,60 @@ class GeneratePlanUseCase {
         await db.planEntrySchemas.putAll(revEntries);
       });
     }
+
+    // ── Also queue SM-2 review cards for this chapter ─────────────────────
+    await createInitialReviewCards(
+      chapterName: chapterName,
+      subjectName: subjectName,
+      syllabusSource: '',
+    );
+  }
+
+  // ── Initial SM-2 review cards ─────────────────────────────────────────────
+  // Called automatically from scheduleRevisions() when a chapter is learned.
+  // Also callable directly from ChapterDetailScreen / any "Mark as Learned" flow.
+  // ⚠️  Full DB persistence needs [REVIEW_CARD_STEP] — see isar_service.dart.
+  //     Until then, the method is a safe no-op so nothing else breaks.
+  static Future<void> createInitialReviewCards({
+    required String chapterName,
+    required String subjectName,
+    required String syllabusSource,
+  }) async {
+    // [REVIEW_CARD_STEP] Uncomment this block after running build_runner
+    // and enabling ReviewCardSchema in isar_service.dart + schemas.dart:
+    //
+    // try {
+    //   final db = IsarService.db;
+    //   String src = syllabusSource;
+    //   if (src.isEmpty) {
+    //     final ch = await db.chapterSchemas
+    //         .filter().nameEqualTo(chapterName).findFirst();
+    //     src = ch?.syllabusSource ?? 'jee_main';
+    //   }
+    //   final already = await db.reviewCardSchemas
+    //       .filter().chapterNameEqualTo(chapterName)
+    //       .isActiveEqualTo(true).count();
+    //   if (already > 0) return;
+    //   final now = DateTime.now();
+    //   await db.writeTxn(() async {
+    //     await db.reviewCardSchemas.putAll([
+    //       ReviewCardSchema.create(
+    //         chapterName: chapterName, subjectName: subjectName,
+    //         syllabusSource: src, cardType: 'concept',
+    //         front: 'Explain the core concept of "$chapterName"',
+    //         back: 'Key ideas:\n• [Main theory]\n• [Key application]',
+    //         nextReviewDate: now.add(const Duration(days: 1)),
+    //       ),
+    //       ReviewCardSchema.create(
+    //         chapterName: chapterName, subjectName: subjectName,
+    //         syllabusSource: src, cardType: 'formula',
+    //         front: 'Most important formula/technique in "$chapterName"?',
+    //         back: 'Main formula:\n[Write the formula or key method]',
+    //         nextReviewDate: now.add(const Duration(days: 3)),
+    //       ),
+    //     ]);
+    //   });
+    // } catch (_) {} // Non-fatal — never block the study flow
   }
 
   static double _round(double v) => (v * 10).round() / 10;

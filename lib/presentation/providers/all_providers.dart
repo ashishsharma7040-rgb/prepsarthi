@@ -277,11 +277,26 @@ class PlanNotifier extends Notifier<PlanState> {
       return;
     }
 
-    final source = _syllabusSource(user.targetExam);
-    final chapters = await db.chapterSchemas
-        .filter()
-        .syllabusSourceEqualTo(source)
-        .findAll();
+    // FIXED: 'both' loads jee_main + neet_ug combined.
+    // All other exams load their specific source.
+    final List<ChapterSchema> chapters;
+    if (user.targetExam == 'both') {
+      final jee = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo('jee_main')
+          .findAll();
+      final neet = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo('neet_ug')
+          .findAll();
+      chapters = [...jee, ...neet];
+    } else {
+      final source = _syllabusSource(user.targetExam);
+      chapters = await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo(source)
+          .findAll();
+    }
 
     final today = _dayOnly(DateTime.now());
     final todayEntries = await db.planEntrySchemas
@@ -587,15 +602,17 @@ class PlanNotifier extends Notifier<PlanState> {
     await _load();
   }
 
-  String _syllabusSource(String exam) {
+  // FIXED: class12_boards now correctly maps to 'class12_boards' source.
+  // 'both' is handled in _load() directly (loads two sources) — this method
+  // is only used as a fallback; 'both' shouldn't reach here.
+  String _syllabusSource(String? exam) {
     switch (exam) {
-      case 'neet':        return 'neet_ug';
-      case 'jee_advanced':return 'jee_advanced';
-      case 'ca_final':    return 'ca_final';
-      case 'both':
-      case 'class12_boards':
+      case 'neet':           return 'neet_ug';
+      case 'jee_advanced':   return 'jee_advanced';
+      case 'ca_final':       return 'ca_final';
+      case 'class12_boards': return 'class12_boards';
       case 'jee_main':
-      default:            return 'jee_main';
+      default:               return 'jee_main';
     }
   }
 
