@@ -18,6 +18,9 @@ class WeeklyPlanScreen extends ConsumerStatefulWidget {
 
 class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
   int _weekOffset = 0;
+  List<PlanEntrySchema> _currentWeekEntries = [];
+  bool _loadingWeek = false;
+  bool _hasPlanAny = false;
 
   DateTime get _weekStart {
     final now = DateTime.now();
@@ -30,10 +33,38 @@ class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
       List.generate(7, (i) => _weekStart.add(Duration(days: i)));
 
   @override
+  void initState() {
+    super.initState();
+    _loadWeek();
+  }
+
+  Future<void> _loadWeek() async {
+    if (!mounted) return;
+    setState(() => _loadingWeek = true);
+    final entries =
+        await ref.read(planProvider.notifier).fetchEntriesForWeek(_weekStart);
+    final hasAny = await ref.read(planProvider.notifier).hasPlanEntries();
+    if (!mounted) return;
+    setState(() {
+      _currentWeekEntries = entries;
+      _hasPlanAny = hasAny;
+      _loadingWeek = false;
+    });
+  }
+
+  void _changeWeek(int delta) {
+    setState(() => _weekOffset += delta);
+    _loadWeek();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final planState = ref.watch(planProvider);
+
+    // Refresh when planProvider changes (e.g., after marking done)
+    ref.listen(planProvider, (_, __) => _loadWeek());
 
     return Scaffold(
       body: SafeArea(
@@ -50,62 +81,140 @@ class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
                       Text('Study Plan', style: theme.textTheme.headlineLarge),
                       Row(
                         children: [
-                          _IconBtn(icon: Icons.chevron_left, onTap: () => setState(() => _weekOffset--), isDark: isDark),
+                          _IconBtn(
+                              icon: Icons.chevron_left,
+                              onTap: () => _changeWeek(-1),
+                              isDark: isDark),
                           const SizedBox(width: 4),
-                          Text(
-                            _weekOffset == 0 ? 'This Week' : _weekOffset == 1 ? 'Next Week' : '+$_weekOffset weeks',
-                            style: theme.textTheme.labelLarge,
+                          GestureDetector(
+                            onTap: () {
+                              if (_weekOffset != 0) {
+                                setState(() => _weekOffset = 0);
+                                _loadWeek();
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _weekOffset == 0
+                                    ? (isDark
+                                        ? DarkColors.primary
+                                        : LightColors.primary)
+                                        .withOpacity(0.12)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _weekOffset == 0
+                                    ? 'This Week'
+                                    : _weekOffset == 1
+                                        ? 'Next Week'
+                                        : _weekOffset == -1
+                                            ? 'Last Week'
+                                            : _weekOffset > 0
+                                                ? '+$_weekOffset weeks'
+                                                : '${_weekOffset.abs()} wks ago',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: _weekOffset == 0
+                                      ? (isDark
+                                          ? DarkColors.primary
+                                          : LightColors.primary)
+                                      : null,
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 4),
-                          _IconBtn(icon: Icons.chevron_right, onTap: () => setState(() => _weekOffset++), isDark: isDark),
+                          _IconBtn(
+                              icon: Icons.chevron_right,
+                              onTap: () => _changeWeek(1),
+                              isDark: isDark),
                         ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _DayStrip(days: _weekDays, entries: planState.weekEntries, isDark: isDark),
+                  _DayStrip(
+                      days: _weekDays,
+                      entries: _currentWeekEntries,
+                      isDark: isDark),
                 ],
               ),
             ),
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _WeekBar(entries: planState.weekEntries, isDark: isDark),
+              child: _WeekBar(
+                  entries: _currentWeekEntries, isDark: isDark),
             ),
             const SizedBox(height: 8),
 
             // List
             Expanded(
-              child: planState.isLoading
+              child: _loadingWeek
                   ? const Center(child: CircularProgressIndicator())
-                  : !planState.hasPlan
+                  : !_hasPlanAny && _currentWeekEntries.isEmpty
                       ? _NoPlanYet(isDark: isDark)
-                      : _buildList(planState.weekEntries, isDark),
+                      : _currentWeekEntries.isEmpty
+                          ? _NoEntriesThisWeek(
+                              isDark: isDark,
+                              weekOffset: _weekOffset,
+                              onAddSession: () =>
+                                  _showAddSessionSheet(context, isDark, planState),
+                            )
+                          : _buildList(_currentWeekEntries, isDark, planState),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showRegenerateSheet(context, isDark),
-        icon: const Text('🧠', style: TextStyle(fontSize: 20)),
-        label: const Text('AI Regenerate'),
-        backgroundColor: isDark ? DarkColors.primary : LightColors.primary,
-        foregroundColor: Colors.white,
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Add Session button
+          FloatingActionButton.small(
+            heroTag: 'add_session',
+            onPressed: () =>
+                _showAddSessionSheet(context, isDark, planState),
+            backgroundColor:
+                isDark ? DarkColors.surfaceCard : LightColors.surface,
+            foregroundColor:
+                isDark ? DarkColors.primary : LightColors.primary,
+            elevation: 2,
+            tooltip: 'Add study session',
+            child: const Icon(Icons.add_rounded),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: 'ai_regen',
+            onPressed: () => _showRegenerateSheet(context, isDark),
+            icon: const Text('🧠', style: TextStyle(fontSize: 18)),
+            label: const Text('AI Regenerate'),
+            backgroundColor:
+                isDark ? DarkColors.primary : LightColors.primary,
+            foregroundColor: Colors.white,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildList(List<PlanEntrySchema> entries, bool isDark) {
+  Widget _buildList(List<PlanEntrySchema> entries, bool isDark,
+      PlanState planState) {
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       physics: const BouncingScrollPhysics(),
       itemCount: _weekDays.length,
       itemBuilder: (_, i) {
         final day = _weekDays[i];
-        final dayEntries = entries.where((e) =>
-            e.plannedDate.year == day.year &&
-            e.plannedDate.month == day.month &&
-            e.plannedDate.day == day.day).toList()
+        final dayEntries = entries
+            .where((e) =>
+                e.plannedDate.year == day.year &&
+                e.plannedDate.month == day.month &&
+                e.plannedDate.day == day.day)
+            .toList()
           ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
         if (dayEntries.isEmpty) return const SizedBox.shrink();
         return _DaySection(
@@ -124,6 +233,24 @@ class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _RegenerateSheet(isDark: isDark),
+    );
+  }
+
+  // ── Add Session sheet ────────────────────────────────────────────────────
+  void _showAddSessionSheet(
+      BuildContext context, bool isDark, PlanState planState) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AddSessionSheet(
+        isDark: isDark,
+        planState: planState,
+        targetDate: _weekOffset == 0
+            ? DateTime.now()
+            : _weekStart.add(const Duration(days: 0)),
+        onAdded: _loadWeek,
+      ),
     );
   }
 }
@@ -984,6 +1111,476 @@ class _NoPlanYet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NoEntriesThisWeek extends StatelessWidget {
+  final bool isDark;
+  final int weekOffset;
+  final VoidCallback onAddSession;
+  const _NoEntriesThisWeek(
+      {required this.isDark,
+      required this.weekOffset,
+      required this.onAddSession});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = isDark ? DarkColors.primary : LightColors.primary;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(weekOffset > 0 ? '📅' : '✅',
+                style: const TextStyle(fontSize: 56)),
+            const SizedBox(height: 16),
+            Text(
+              weekOffset > 0
+                  ? 'No sessions planned for this week yet'
+                  : 'No sessions remaining this week',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              weekOffset > 0
+                  ? 'Use the + button to add study sessions, or AI Regenerate to fill the week automatically.'
+                  : 'All caught up! Use + to add more sessions.',
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onAddSession,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add Session'),
+              style: FilledButton.styleFrom(backgroundColor: accent),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _AddSessionSheet — lets user add a new study session for any chapter
+// ─────────────────────────────────────────────────────────────────────────────
+class _AddSessionSheet extends ConsumerStatefulWidget {
+  final bool isDark;
+  final PlanState planState;
+  final DateTime targetDate;
+  final VoidCallback onAdded;
+  const _AddSessionSheet({
+    required this.isDark,
+    required this.planState,
+    required this.targetDate,
+    required this.onAdded,
+  });
+
+  @override
+  ConsumerState<_AddSessionSheet> createState() => _AddSessionSheetState();
+}
+
+class _AddSessionSheetState extends ConsumerState<_AddSessionSheet> {
+  String? _selectedSubject;
+  String? _selectedChapter;
+  double _hours = 1.5;
+  DateTime? _sessionDate;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionDate = widget.targetDate;
+  }
+
+  List<String> get _subjects =>
+      widget.planState.chapters.map((c) => c.subjectName).toSet().toList()
+        ..sort();
+
+  List<String> get _chapters {
+    if (_selectedSubject == null) return [];
+    return widget.planState.chapters
+        .where((c) => c.subjectName == _selectedSubject)
+        .map((c) => c.name)
+        .toList()
+      ..sort();
+  }
+
+  Future<void> _showPicker(BuildContext context, List<String> items,
+      String? selected, ValueChanged<String?> onChanged) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _StringPickerSheet(
+          items: items, selected: selected, isDark: widget.isDark),
+    );
+    if (result != null) onChanged(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = widget.isDark;
+    final accent = isDark ? DarkColors.primary : LightColors.primary;
+
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? DarkColors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: isDark ? DarkColors.outline : LightColors.outline,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+
+          Row(children: [
+            const Text('➕', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 8),
+            Text('Add Study Session',
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 20),
+
+          // Subject picker
+          Text('Subject',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _PickerTile(
+            value: _selectedSubject,
+            hint: 'Tap to select subject',
+            isDark: isDark,
+            accent: accent,
+            onTap: () => _showPicker(
+              context, _subjects, _selectedSubject,
+              (v) => setState(() {
+                _selectedSubject = v;
+                _selectedChapter = null;
+              }),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Chapter picker
+          Text('Chapter',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _PickerTile(
+            value: _selectedChapter,
+            hint: _selectedSubject == null
+                ? 'Select subject first'
+                : 'Tap to select chapter',
+            isDark: isDark,
+            accent: accent,
+            enabled: _selectedSubject != null,
+            onTap: _selectedSubject == null
+                ? null
+                : () => _showPicker(
+                      context, _chapters, _selectedChapter,
+                      (v) => setState(() => _selectedChapter = v),
+                    ),
+          ),
+          const SizedBox(height: 16),
+
+          // Hours
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Hours',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('${_hours.toStringAsFixed(1)}h',
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(color: accent, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+          Slider(
+            value: _hours,
+            min: 0.5, max: 6.0, divisions: 11,
+            activeColor: accent,
+            onChanged: (v) => setState(() => _hours = v),
+          ),
+
+          // Date
+          Text('Date',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _sessionDate ?? DateTime.now(),
+                firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null) setState(() => _sessionDate = picked);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? DarkColors.surfaceVariant
+                    : LightColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color:
+                        isDark ? DarkColors.outline : LightColors.outline),
+              ),
+              child: Row(children: [
+                Icon(Icons.calendar_today_rounded, size: 16, color: accent),
+                const SizedBox(width: 10),
+                Text(
+                  _sessionDate != null
+                      ? DateFormat('EEE, d MMM yyyy').format(_sessionDate!)
+                      : 'Pick date',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right,
+                    size: 18,
+                    color: isDark
+                        ? DarkColors.onSurfaceVariant
+                        : LightColors.onSurfaceVariant),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          FilledButton(
+            onPressed: (_selectedChapter == null || _saving)
+                ? null
+                : () async {
+                    setState(() => _saving = true);
+                    final date = _sessionDate ?? DateTime.now();
+                    await ref.read(planProvider.notifier).addSessionOnDate(
+                          chapterName: _selectedChapter!,
+                          subjectName: _selectedSubject!,
+                          hours: _hours,
+                          date: date,
+                        );
+                    widget.onAdded();
+                    if (mounted) Navigator.pop(context);
+                  },
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              backgroundColor: accent,
+            ),
+            child: _saving
+                ? const SizedBox(
+                    width: 22, height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: Colors.white))
+                : const Text('Add to Plan'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44)),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Simple picker tile (used inside sheets where context nesting is fine)
+class _PickerTile extends StatelessWidget {
+  final String? value;
+  final String hint;
+  final bool isDark;
+  final Color accent;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _PickerTile({
+    required this.value,
+    required this.hint,
+    required this.isDark,
+    required this.accent,
+    this.enabled = true,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: isDark ? DarkColors.surfaceVariant : LightColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: value != null
+                ? accent.withOpacity(0.5)
+                : (isDark ? DarkColors.outline : LightColors.outline),
+            width: value != null ? 1.5 : 0.5,
+          ),
+        ),
+        child: Row(children: [
+          Expanded(
+            child: Text(
+              value ?? hint,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: value != null
+                    ? null
+                    : (isDark
+                        ? DarkColors.onSurfaceVariant
+                        : LightColors.onSurfaceVariant),
+                fontWeight:
+                    value != null ? FontWeight.w500 : FontWeight.w400,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Icon(
+            enabled ? Icons.keyboard_arrow_down_rounded : Icons.lock_outline,
+            size: 20,
+            color: isDark
+                ? DarkColors.onSurfaceVariant
+                : LightColors.onSurfaceVariant,
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// Reusable string picker sheet (same as _PickerSheet in study_screens.dart)
+class _StringPickerSheet extends StatefulWidget {
+  final List<String> items;
+  final String? selected;
+  final bool isDark;
+  const _StringPickerSheet(
+      {required this.items, required this.selected, required this.isDark});
+
+  @override
+  State<_StringPickerSheet> createState() => _StringPickerSheetState();
+}
+
+class _StringPickerSheetState extends State<_StringPickerSheet> {
+  String _query = '';
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = widget.isDark;
+    final accent = isDark ? DarkColors.primary : LightColors.primary;
+    final filtered = widget.items
+        .where((s) => s.toLowerCase().contains(_query.toLowerCase()))
+        .toList();
+
+    return Container(
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      decoration: BoxDecoration(
+        color: isDark ? DarkColors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? DarkColors.outline : LightColors.outline,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TextField(
+              controller: _ctrl,
+              autofocus: widget.items.length > 8,
+              decoration: InputDecoration(
+                hintText: 'Search…',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.only(bottom: 12),
+              itemCount: filtered.length,
+              itemBuilder: (_, i) {
+                final item = filtered[i];
+                final sel = item == widget.selected;
+                return ListTile(
+                  dense: true,
+                  title: Text(item,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight:
+                            sel ? FontWeight.w700 : FontWeight.w400,
+                        color: sel ? accent : null,
+                      )),
+                  trailing: sel
+                      ? Icon(Icons.check_circle_rounded,
+                          color: accent, size: 20)
+                      : null,
+                  onTap: () => Navigator.pop(context, item),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

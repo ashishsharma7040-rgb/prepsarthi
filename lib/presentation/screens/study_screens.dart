@@ -320,11 +320,10 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                       // ── Subject ────────────────────────────────────────────
                       _Label('Subject'),
                       const SizedBox(height: 8),
-                      _Dropdown<String>(
+                      _PickerField(
                         value: _selectedSubject,
-                        hint: planState.hasChapters ? 'Select subject' : 'No syllabus loaded',
+                        hint: planState.hasChapters ? 'Tap to select subject' : 'No syllabus loaded — complete onboarding first',
                         items: subjects,
-                        label: (s) => s,
                         isDark: isDark,
                         enabled: planState.hasChapters,
                         onChanged: (v) => setState(() { _selectedSubject = v; _selectedChapter = null; }),
@@ -334,13 +333,12 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                       // ── Chapter ────────────────────────────────────────────
                       _Label('Chapter'),
                       const SizedBox(height: 8),
-                      _Dropdown<String>(
+                      _PickerField(
                         value: _selectedChapter,
-                        hint: _selectedSubject == null ? 'Select subject first' : 'Select chapter',
+                        hint: _selectedSubject == null ? 'Select subject first' : 'Tap to select chapter',
                         items: chapters,
-                        label: (s) => s,
                         isDark: isDark,
-                        enabled: _selectedSubject != null,
+                        enabled: _selectedSubject != null && chapters.isNotEmpty,
                         onChanged: (v) => setState(() => _selectedChapter = v),
                       ),
                       const SizedBox(height: 20),
@@ -894,23 +892,21 @@ class _AddRevisionSheetState extends ConsumerState<_AddRevisionSheet> {
             Text('Add Manual Revision', style: theme.textTheme.headlineSmall),
           ]),
           const SizedBox(height: 16),
-          _Dropdown<String>(
+          _PickerField(
             value: _selectedSubject,
             hint: 'Select subject',
             items: subjects,
-            label: (s) => s,
             isDark: widget.isDark,
             enabled: true,
             onChanged: (v) => setState(() { _selectedSubject = v; _selectedChapter = null; }),
           ),
           const SizedBox(height: 12),
-          _Dropdown<String>(
+          _PickerField(
             value: _selectedChapter,
             hint: _selectedSubject == null ? 'Select subject first' : 'Select chapter',
             items: chapters,
-            label: (s) => s,
             isDark: widget.isDark,
-            enabled: _selectedSubject != null,
+            enabled: _selectedSubject != null && chapters.isNotEmpty,
             onChanged: (v) => setState(() => _selectedChapter = v),
           ),
           const SizedBox(height: 20),
@@ -1102,54 +1098,206 @@ class _Label extends StatelessWidget {
       style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600));
 }
 
-class _Dropdown<T> extends StatelessWidget {
-  final T? value;
+// ─────────────────────────────────────────────────────────────────────────────
+// _PickerField — replaces DropdownButton (which has known scroll+overlay issues
+// on Android/iOS inside CustomScrollView). Uses a reliable ModalBottomSheet.
+// ─────────────────────────────────────────────────────────────────────────────
+class _PickerField extends StatelessWidget {
+  final String? value;
   final String hint;
-  final List<T> items;
-  final String Function(T) label;
-  final ValueChanged<T?> onChanged;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
   final bool isDark;
   final bool enabled;
 
-  const _Dropdown({
+  const _PickerField({
     required this.value,
     required this.hint,
     required this.items,
-    required this.label,
     required this.onChanged,
     required this.isDark,
     required this.enabled,
   });
 
+  Future<void> _openPicker(BuildContext context) async {
+    if (!enabled || items.isEmpty) return;
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PickerSheet(
+        items: items,
+        selected: value,
+        isDark: isDark,
+      ),
+    );
+    if (result != null) onChanged(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: isDark ? DarkColors.surfaceVariant : LightColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? DarkColors.outline : LightColors.outline, width: 0.5),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          hint: Text(hint, style: theme.textTheme.bodyMedium?.copyWith(
-            color: isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant,
-          )),
-          icon: Icon(Icons.keyboard_arrow_down_rounded,
-              color: isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant),
-          dropdownColor: isDark ? DarkColors.surfaceCard : Colors.white,
+    final textColor = enabled && items.isNotEmpty
+        ? (isDark ? DarkColors.onSurfaceVariant : LightColors.onSurfaceVariant)
+        : (isDark ? DarkColors.outline : LightColors.outline);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openPicker(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? DarkColors.surfaceVariant : LightColors.surfaceVariant,
           borderRadius: BorderRadius.circular(12),
-          items: enabled
-              ? items.map((item) => DropdownMenuItem<T>(
-                    value: item,
-                    child: Text(label(item), style: theme.textTheme.bodyMedium),
-                  )).toList()
-              : [],
-          onChanged: enabled ? onChanged : null,
+          border: Border.all(
+            color: value != null
+                ? (isDark ? DarkColors.primary : LightColors.primary).withOpacity(0.5)
+                : (isDark ? DarkColors.outline : LightColors.outline),
+            width: value != null ? 1.5 : 0.5,
+          ),
         ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                value ?? hint,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: value != null
+                      ? (isDark ? DarkColors.onSurfaceVariant : LightColors.onSurface)
+                      : textColor,
+                  fontWeight: value != null ? FontWeight.w500 : FontWeight.w400,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              enabled && items.isNotEmpty
+                  ? Icons.keyboard_arrow_down_rounded
+                  : Icons.lock_outline_rounded,
+              size: 20,
+              color: textColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PickerSheet — searchable scrollable list shown as bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+class _PickerSheet extends StatefulWidget {
+  final List<String> items;
+  final String? selected;
+  final bool isDark;
+  const _PickerSheet({required this.items, required this.selected, required this.isDark});
+
+  @override
+  State<_PickerSheet> createState() => _PickerSheetState();
+}
+
+class _PickerSheetState extends State<_PickerSheet> {
+  String _query = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = widget.isDark;
+    final accent = isDark ? DarkColors.primary : LightColors.primary;
+
+    final filtered = widget.items
+        .where((s) => s.toLowerCase().contains(_query.toLowerCase()))
+        .toList();
+
+    final maxH = MediaQuery.of(context).size.height * 0.75;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      decoration: BoxDecoration(
+        color: isDark ? DarkColors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? DarkColors.outline : LightColors.outline,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: TextField(
+              controller: _searchCtrl,
+              autofocus: widget.items.length > 8,
+              decoration: InputDecoration(
+                hintText: 'Search…',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: filtered.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('No results for "$_query"',
+                        style: theme.textTheme.bodySmall),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(bottom: 12),
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final item = filtered[i];
+                      final selected = item == widget.selected;
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          item,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                            color: selected ? accent : null,
+                          ),
+                        ),
+                        trailing: selected
+                            ? Icon(Icons.check_circle_rounded, color: accent, size: 20)
+                            : null,
+                        onTap: () => Navigator.pop(context, item),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

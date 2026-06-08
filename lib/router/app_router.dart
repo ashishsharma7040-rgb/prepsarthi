@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../presentation/providers/all_providers.dart';
 import '../presentation/screens/auth/login_screen.dart';
 import '../presentation/screens/onboarding/onboarding_screens.dart';
+import '../presentation/screens/onboarding/generating_plan_screen.dart';
 import '../presentation/screens/dashboard/dashboard_screen.dart';
 import '../presentation/screens/dashboard/today_command_center.dart';
 import '../presentation/screens/plan/weekly_plan_screen.dart';

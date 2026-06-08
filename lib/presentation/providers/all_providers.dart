@@ -308,10 +308,15 @@ class PlanNotifier extends Notifier<PlanState> {
   }
 
   // Generate the full plan from scratch
+  // ✅ UPDATED: accepts syllabusCompletionTargetDate, paceMode, weakSubjectBoost
+  // so the GeneratingPlanScreen can pass fine-tuned options through.
   Future<void> generatePlan({
     required DateTime examDate,
     required double dailyHours,
     required List<DateTime> blackoutDates,
+    DateTime? syllabusCompletionTargetDate,
+    String paceMode = 'balanced',
+    Map<String, double> weakSubjectBoost = const {},
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -320,6 +325,9 @@ class PlanNotifier extends Notifier<PlanState> {
         dailyStudyHours: dailyHours,
         chapters: state.chapters,
         blackoutDates: blackoutDates,
+        syllabusCompletionTargetDate: syllabusCompletionTargetDate,
+        paceMode: paceMode,
+        weakSubjectBoost: weakSubjectBoost,
       );
       // Mark plan generated timestamp
       final db = IsarService.db;
@@ -424,6 +432,28 @@ class PlanNotifier extends Notifier<PlanState> {
 
   Future<void> refresh() => _load();
 
+  /// Fetch plan entries for any arbitrary week (used by weekly plan screen
+  /// when the user navigates to past/future weeks with _weekOffset).
+  Future<List<PlanEntrySchema>> fetchEntriesForWeek(DateTime weekStart) async {
+    final db = IsarService.db;
+    final start = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    final end = start.add(const Duration(days: 7));
+    return db.planEntrySchemas
+        .filter()
+        .plannedDateGreaterThan(start.subtract(const Duration(days: 1)))
+        .and()
+        .plannedDateLessThan(end)
+        .sortByPlannedDate()
+        .findAll();
+  }
+
+  /// Check if any plan entries exist at all (not just this week).
+  Future<bool> hasPlanEntries() async {
+    final db = IsarService.db;
+    final count = await db.planEntrySchemas.count();
+    return count > 0;
+  }
+
   // ── Manual Plan Editing ──────────────────────────────────────────────────
   // Powers the full manual-edit flow: rearrange sessions within a day,
   // change hours/date of any entry, or remove an entry entirely.
@@ -519,6 +549,36 @@ class PlanNotifier extends Notifier<PlanState> {
       ..subjectName = subjectName
       ..plannedDate = targetDate
       ..plannedHours = hours
+      ..orderIndex = orderIndex
+      ..isRevision = false
+      ..status = 'pending';
+
+    await db.writeTxn(() async => db.planEntrySchemas.put(entry));
+    await _load();
+  }
+
+  /// Add a study session on a SPECIFIC date (used by Add Session sheet)
+  Future<void> addSessionOnDate({
+    required String chapterName,
+    required String subjectName,
+    required double hours,
+    required DateTime date,
+  }) async {
+    final db = IsarService.db;
+    final dayKey = _dayOnly(date);
+
+    final maxOrder = await db.planEntrySchemas
+        .filter()
+        .plannedDateEqualTo(dayKey)
+        .sortByOrderIndexDesc()
+        .findFirst();
+    final orderIndex = (maxOrder?.orderIndex ?? -1) + 1;
+
+    final entry = PlanEntrySchema()
+      ..chapterName = chapterName
+      ..subjectName = subjectName
+      ..plannedDate = dayKey
+      ..plannedHours = hours.clamp(0.5, 8.0)
       ..orderIndex = orderIndex
       ..isRevision = false
       ..status = 'pending';
