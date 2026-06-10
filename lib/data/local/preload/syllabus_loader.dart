@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
 import '../isar/isar_service.dart';
+import '../../../core/utils/chapter_key.dart';
 
 // ── Asset paths ──────────────────────────────────────────────────────────────
 const _jeeMainAsset = 'assets/syllabus/jee_main_2026.json';
@@ -111,6 +112,7 @@ class SyllabusLoader {
 
             if (existing == null) {
               final newCh = ChapterSchema()
+                ..chapterKey     = ChapterKey.build(source, name) // DATA-1
                 ..subjectName    = subjectName
                 ..syllabusSource = source
                 ..name           = name
@@ -124,6 +126,7 @@ class SyllabusLoader {
               await db.chapterSchemas.put(newCh);
               added++;
             } else {
+              existing.chapterKey = ChapterKey.build(source, name); // DATA-1
               existing.estimatedHours = (ch['estimatedHours'] as num).toDouble();
               existing.weightage      = (ch['weightage'] as num).toDouble();
               existing.difficulty     = ch['difficulty'] as int;
@@ -151,6 +154,7 @@ class SyllabusLoader {
       final paperNo = subject['paperNo'] as int? ?? 0;
       for (final ch in (subject['chapters'] as List)) {
         chapters.add(ChapterSchema()
+          ..chapterKey     = ChapterKey.build(source, ch['name'] as String) // DATA-1
           ..subjectName    = subjectName
           ..syllabusSource = source
           ..name           = ch['name']          as String
