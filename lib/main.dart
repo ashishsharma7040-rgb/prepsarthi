@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 
 import 'app.dart';
 import 'core/startup/startup_controller.dart';
@@ -14,6 +16,17 @@ void main() {
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('[Main] bootstrap started');
+
+  // STRUCT-6 FIX: initialize Indian-English locale data once, globally.
+  // Every DateFormat('h:mm a') etc. in the app then resolves safely on
+  // devices whose system locale lacks the needed symbols. This is the
+  // correct global fix — per-call-site locale args risk uninitialized data.
+  try {
+    await initializeDateFormatting('en_IN');
+    Intl.defaultLocale = 'en_IN';
+  } catch (error) {
+    debugPrint('[Main] locale init failed (non-fatal): $error');
+  }
 
   // ✅ FIX (Improvement #2 / Audit §5): Global error boundary.
   // Prevents the red "RenderFlex overflow" screen in release builds.
