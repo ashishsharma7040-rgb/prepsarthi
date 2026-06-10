@@ -26,12 +26,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/chapter_key.dart';
 import '../isar/isar_service.dart';
-import '../isar/schemas/chapter_schema.dart';
-import '../isar/schemas/mistake_entry_schema.dart';
-import '../isar/schemas/plan_entry_schema.dart';
-import '../isar/schemas/revision_schedule_schema.dart';
-import '../isar/schemas/study_log_schema.dart';
-import '../isar/schemas/user_schema.dart';
 
 class ChapterKeyMigration {
   ChapterKeyMigration._();
