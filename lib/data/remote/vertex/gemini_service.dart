@@ -9,8 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:firebase_vertexai/firebase_vertexai.dart';
 import 'package:flutter/foundation.dart';
-import '../../local/isar/schemas/schemas.dart';
-import '../../local/isar/isar_service.dart';
+import 'package:isar/isar.dart'; // PART 2A FIX: where findFirst()/where() live
+import '../../local/isar/isar_service.dart'; // re-exports schemas/schemas.dart
 import '../../content/exam_registry.dart';
 
 class GeminiService {
