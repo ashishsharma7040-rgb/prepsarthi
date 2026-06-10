@@ -86,7 +86,13 @@ jobs:
         run: flutter pub get
 
       - name: Remove stale files
-        run: rm -f lib/presentation/screens/mistake_notebook_screen.dart
+        run: |
+          rm -f lib/presentation/screens/mistake_notebook_screen.dart
+          # Dead duplicate created during manual upload — the live file is at
+          # lib/presentation/screens/mistakes/ (imported by app_router). This
+          # stray copy has broken relative imports and fails analyze.
+          rm -f lib/presentation/mistakes/mistake_notebook_screen.dart
+          echo "✅ stale/duplicate files removed"
 
       - name: Clean build cache
         run: |
