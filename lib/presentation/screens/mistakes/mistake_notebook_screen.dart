@@ -15,6 +15,7 @@ import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/isar/isar_service.dart';
+import '../../../data/local/chapter_resolver.dart';
 import '../../providers/all_providers.dart';
 
 // ─── Legacy SharedPrefs migration key ────────────────────────────────────────
@@ -106,8 +107,20 @@ class MistakeNotifier extends AsyncNotifier<List<MistakeEntrySchema>> {
     required String correctApproach,
     String? testName,
   }) async {
+    final db = IsarService.db;
+
+    // DATA-1/DATA-4 FIX: resolve the chapter stream-aware so the mistake is
+    // tagged with the correct identity and stream (mistakes previously had
+    // no source field, so weakness analysis mixed exams together).
+    final chapter = await ChapterResolver.find(
+      db,
+      chapterName: chapterName,
+    );
+
     final schema = MistakeEntrySchema()
       ..date             = DateTime.now()
+      ..chapterKey       = chapter?.chapterKey ?? ''
+      ..syllabusSource   = chapter?.syllabusSource ?? ''
       ..mistakeTypeIndex = _indexFromType(type)
       ..chapterName      = chapterName
       ..subjectName      = subjectName
@@ -117,7 +130,6 @@ class MistakeNotifier extends AsyncNotifier<List<MistakeEntrySchema>> {
       ..testName         = testName
       ..createdAt        = DateTime.now();
 
-    final db = IsarService.db;
     await db.writeTxn(() => db.mistakeEntrySchemas.put(schema));
     state = AsyncData(await _fetchAll());
   }
