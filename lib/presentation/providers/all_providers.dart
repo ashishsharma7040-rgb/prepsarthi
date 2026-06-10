@@ -14,7 +14,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../core/utils/notification_helper.dart';
+import '../../core/constants/exam_dates.dart';
+import '../../data/local/chapter_resolver.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
+import '../../domain/usecases/streak_usecase.dart';
 
 // ── Re-export extracted providers ─────────────────────────────────────────
 // Settings is now its own file. Export it here so all existing imports
@@ -105,30 +108,14 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(user: user);
   }
 
+  /// DATA-5 FIX: delegates to the single streak authority. The previous body
+  /// was a SECOND streak implementation that raced with the one inside
+  /// logSession() — the double-update bug. StreakUseCase is idempotent
+  /// same-day, so any legacy caller of this method is now harmless.
+  /// Screens should NOT call this; logSession() handles streaks itself.
   Future<void> updateStreak() async {
-    final db = IsarService.db;
-    final user = state.user;
-    if (user == null) return;
-    final today = _dayOnly(DateTime.now());
-    final last = user.lastStudyDate;
-    if (last != null) {
-      final lastDay = _dayOnly(last);
-      if (lastDay == today) return;
-      final diff = today.difference(lastDay).inDays;
-      user.currentStreak = diff == 1 ? user.currentStreak + 1 : 1;
-    } else {
-      user.currentStreak = 1;
-    }
-    user.lastStudyDate = today;
-    if (user.currentStreak > user.longestStreak) {
-      user.longestStreak = user.currentStreak;
-    }
-    await db.writeTxn(() async => db.userSchemas.put(user));
-    state = state.copyWith(user: user);
-    // Show streak notification at milestones
-    if ([3, 7, 14, 30, 60, 100].contains(user.currentStreak)) {
-      await NotificationHelper.showStreakNotification(user.currentStreak);
-    }
+    await StreakUseCase.touchToday();
+    await _loadLocalUser(); // refresh state.user with the new streak values
   }
 
   Future<void> signOut() async {
@@ -167,26 +154,9 @@ class OnboardingState {
     if (examYear == null) return null;
     final year = int.tryParse(examYear!);
     if (year == null) return null;
-    switch (targetExam) {
-      case 'ca_final':
-        // CA Final: ICAI holds exams twice yearly — May (week 2) & November (week 2).
-        switch (caAttempt) {
-          case 'may':       return DateTime(year, 5, 12);
-          case 'november':  return DateTime(year, 11, 10);
-          default:          return DateTime(year, 5, 12);
-        }
-      case 'neet':
-        return DateTime(year, 5, 4);
-      case 'jee_advanced':
-        return DateTime(year, 5, 25);
-      case 'class12_boards':
-        return DateTime(year, 3, 1);
-      case 'both':
-        return DateTime(year, 5, 4);
-      case 'jee_main':
-      default:
-        return DateTime(year, 4, 13);
-    }
+    // EXAM-2/EXAM-5 FIX: routed through ExamDates — previously this getter and
+    // the onboarding screen disagreed (Mar 1 vs Feb 28; May/Nov vs Jan/May/Sep).
+    return ExamDates.examDate(targetExam, year, caAttempt: caAttempt);
   }
 
   OnboardingState copyWith({
@@ -299,20 +269,30 @@ class PlanNotifier extends Notifier<PlanState> {
     }
 
     final today = _dayOnly(DateTime.now());
-    final todayEntries = await db.planEntrySchemas
+
+    // DATA-1/DATA-4 FIX: only show THIS user's stream(s). Entries created
+    // before the chapterKey migration have syllabusSource '' — keep showing
+    // those (legacy tolerance) so nobody loses their plan during upgrade.
+    final userSources = ChapterResolver.sourcesForExam(user.targetExam);
+    bool inStream(PlanEntrySchema e) =>
+        e.syllabusSource.isEmpty || userSources.contains(e.syllabusSource);
+
+    final todayEntriesRaw = await db.planEntrySchemas
         .filter()
         .plannedDateEqualTo(today)
         .sortByOrderIndex()
         .findAll();
+    final todayEntries = todayEntriesRaw.where(inStream).toList();
 
     final weekEnd = today.add(const Duration(days: 7));
-    final weekEntries = await db.planEntrySchemas
+    final weekEntriesRaw = await db.planEntrySchemas
         .filter()
         .plannedDateGreaterThan(today.subtract(const Duration(days: 1)))
         .and()
         .plannedDateLessThan(weekEnd)
         .sortByPlannedDate()
         .findAll();
+    final weekEntries = weekEntriesRaw.where(inStream).toList();
 
     state = PlanState(
       chapters: chapters,
@@ -335,6 +315,11 @@ class PlanNotifier extends Notifier<PlanState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
+      // DATA-6 FIX: read the user's exam from the user record and pass it
+      // explicitly, so the planner never infers the wrong exam from
+      // exam-switch debris left in the chapters table.
+      final db0 = IsarService.db;
+      final user0 = await db0.userSchemas.where().findFirst();
       await GeneratePlanUseCase().execute(
         examDate: examDate,
         dailyStudyHours: dailyHours,
@@ -343,6 +328,7 @@ class PlanNotifier extends Notifier<PlanState> {
         syllabusCompletionTargetDate: syllabusCompletionTargetDate,
         paceMode: paceMode,
         weakSubjectBoost: weakSubjectBoost,
+        examType: user0?.targetExam,
       );
       // Mark plan generated timestamp
       final db = IsarService.db;
@@ -377,10 +363,13 @@ class PlanNotifier extends Notifier<PlanState> {
     final isCompleting =
         (status == 'done' || status == 'completed') && !wasAlreadyDone;
     if (isCompleting && entry.chapterName.isNotEmpty) {
-      final chapter = await db.chapterSchemas
-          .filter()
-          .nameEqualTo(entry.chapterName)
-          .findFirst();
+      // DATA-1 FIX: resolve by the entry's chapterKey (stream-aware), not a
+      // raw name lookup that hit a random copy of colliding names.
+      final chapter = await ChapterResolver.find(
+        db,
+        chapterKey: entry.chapterKey,
+        chapterName: entry.chapterName,
+      );
       if (chapter != null) {
         chapter.hoursSpent += actualHours;
         chapter.lastStudiedDate = DateTime.now();
@@ -400,6 +389,8 @@ class PlanNotifier extends Notifier<PlanState> {
               subjectName: chapter.subjectName,
               learnedDate: DateTime.now(),
               estimatedHours: chapter.estimatedHours,
+              chapterKey: chapter.chapterKey,
+              syllabusSource: chapter.syllabusSource,
             );
           }
         }
@@ -414,10 +405,15 @@ class PlanNotifier extends Notifier<PlanState> {
   // Mark a chapter status and trigger revision scheduling if learned.
   // Also syncs masteryLevel so both the legacy status field AND the 8-level
   // mastery system stay consistent — previously they diverged.
-  Future<void> markChapterStatus(String chapterName, String status) async {
+  // DATA-1 FIX: stream-aware resolution; pass [chapterKey] when available.
+  Future<void> markChapterStatus(String chapterName, String status,
+      {String? chapterKey}) async {
     final db = IsarService.db;
-    final chapter =
-        await db.chapterSchemas.filter().nameEqualTo(chapterName).findFirst();
+    final chapter = await ChapterResolver.find(
+      db,
+      chapterKey: chapterKey,
+      chapterName: chapterName,
+    );
     if (chapter == null) return;
     chapter.status = status;
     chapter.lastStudiedDate = DateTime.now();
@@ -439,6 +435,8 @@ class PlanNotifier extends Notifier<PlanState> {
         subjectName: chapter.subjectName,
         learnedDate: DateTime.now(),
         estimatedHours: chapter.estimatedHours,
+        chapterKey: chapter.chapterKey,
+        syllabusSource: chapter.syllabusSource,
       );
     }
     await db.writeTxn(() async => db.chapterSchemas.put(chapter));
@@ -652,10 +650,22 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
     String? notes,
     bool isPomodoro = false,
     int pomodoroSessions = 0,
+    String? chapterKey, // DATA-1: pass when the caller has it (plan entries)
   }) async {
     final db = IsarService.db;
 
+    // DATA-1 FIX: resolve the chapter stream-aware BEFORE writing the log,
+    // so the log row carries the correct identity. The old code did a raw
+    // nameEqualTo lookup — a coin flip for the 37 colliding chapter names.
+    final chapter = await ChapterResolver.find(
+      db,
+      chapterKey: chapterKey,
+      chapterName: chapterName,
+    );
+
     final log = StudyLogSchema()
+      ..chapterKey = chapter?.chapterKey ?? (chapterKey ?? '')
+      ..syllabusSource = chapter?.syllabusSource ?? ''
       ..chapterName = chapterName
       ..subjectName = subjectName
       ..hoursStudied = hours
@@ -668,8 +678,7 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
     await db.writeTxn(() async => db.studyLogSchemas.put(log));
 
     // Update chapter hours AND keep status/mastery in sync
-    final chapter =
-        await db.chapterSchemas.filter().nameEqualTo(chapterName).findFirst();
+    // (chapter was resolved stream-aware above)
     if (chapter != null) {
       chapter.hoursSpent += hours;
       chapter.lastStudiedDate = DateTime.now();
@@ -705,31 +714,10 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
     // Notify planProvider to reload so Syllabus Progress ring updates immediately
     ref.invalidate(planProvider);
     await _checkAchievements();
-    // FIX: Update streak every time a study session is logged
-    try {
-      final db2 = IsarService.db;
-      final user = await db2.userSchemas.where().findFirst();
-      if (user != null) {
-        final today = DateTime(
-            DateTime.now().year, DateTime.now().month, DateTime.now().day);
-        final last = user.lastStudyDate;
-        if (last == null ||
-            DateTime(last.year, last.month, last.day) != today) {
-          final lastDay =
-              last != null ? DateTime(last.year, last.month, last.day) : null;
-          final diff = lastDay != null ? today.difference(lastDay).inDays : 0;
-          user.currentStreak = (diff == 1) ? user.currentStreak + 1 : 1;
-          user.lastStudyDate = today;
-          if (user.currentStreak > user.longestStreak) {
-            user.longestStreak = user.currentStreak;
-          }
-          await db2.writeTxn(() async => db2.userSchemas.put(user));
-          if ([3, 7, 14, 30, 60, 100].contains(user.currentStreak)) {
-            await NotificationHelper.showStreakNotification(user.currentStreak);
-          }
-        }
-      }
-    } catch (_) {} // Never let streak logic break a study log
+    // DATA-5 FIX: ONE streak authority. The previous inline implementation
+    // raced with AuthNotifier.updateStreak() (called from screens) — the
+    // double-update bug. StreakUseCase.touchToday() is idempotent same-day.
+    await StreakUseCase.touchToday();
   }
 
   Future<List<StudyLogSchema>> getLogsForDate(DateTime date) async {
