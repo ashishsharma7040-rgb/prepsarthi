@@ -24,6 +24,7 @@ import '../../core/utils/app_logger.dart';
 import '../../core/utils/notification_helper.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/local/preload/syllabus_loader.dart';
+import '../../data/local/migrations/chapter_key_migration.dart';
 import '../../data/remote/vertex/gemini_service.dart';
 import '../../domain/usecases/backlog_adjuster.dart';
 
@@ -192,6 +193,15 @@ class StartupController extends AsyncNotifier<StartupState> {
       await SyllabusLoader.loadIfNeeded(targetExam: targetExam)
           .timeout(_syllabusTimeout);
       debugPrint('[Startup] Syllabus ready (target: $targetExam)');
+
+      // DATA-1 FIX: backfill chapterKey on all legacy records. Must run AFTER
+      // syllabus load (chapters now carry chapterKey) and BEFORE the dashboard
+      // reads any data. Idempotent + retry-safe; never throws into startup.
+      await ChapterKeyMigration.runIfNeeded().timeout(
+        _syllabusTimeout,
+        onTimeout: () =>
+            debugPrint('[Startup] chapterKey migration timed out (will retry)'),
+      );
     } catch (error, stack) {
       debugPrint('[Startup] Syllabus load failed: $error');
       reportZoneError(error, stack);
