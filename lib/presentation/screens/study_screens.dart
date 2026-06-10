@@ -122,6 +122,8 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
             subjectName: _selectedSubject!,
             learnedDate: DateTime.now(),
             estimatedHours: chapter.estimatedHours,
+            chapterKey: chapter.chapterKey, // DATA-1
+            syllabusSource: chapter.syllabusSource,
           );
           // Also mark chapter status
           await ref.read(planProvider.notifier).markChapterStatus(
@@ -130,8 +132,9 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
         }
       }
 
-      // Update streak
-      await ref.read(authProvider.notifier).updateStreak();
+      // DATA-5 FIX: streak is updated by StreakUseCase inside logSession().
+      // Calling authProvider.updateStreak() here was the double-update bug.
+      await ref.read(authProvider.notifier).reload(); // refresh streak display only
       await ref.read(planProvider.notifier).refresh();
 
       _confetti.play();
@@ -180,9 +183,15 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
     final subjects = _subjects(planState.chapters);
     final chapters = _chaptersFor(planState.chapters, _selectedSubject);
 
-    // Today's logged hours
-    final todayHours = ref.read(studyLogProvider.notifier).hoursForDate(DateTime.now());
-    final dailyGoal = ref.read(authProvider).user?.dailyStudyHours ?? 6.0;
+    // UI-7 FIX: ref.watch (not ref.read) — rebuilds live when a session is saved
+    final logs = ref.watch(studyLogProvider);
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayHours = logs
+        .where((l) => l.timestamp.isAfter(todayStart))
+        .fold<double>(0, (s, l) => s + l.hoursStudied);
+    final dailyGoal =
+        ref.watch(authProvider.select((s) => s.user?.dailyStudyHours ?? 6.0));
     final goalProgress = (todayHours / dailyGoal).clamp(0.0, 1.0);
 
     return Scaffold(
@@ -273,7 +282,7 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                             ?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
                         SizedBox(
-                          height: 64,
+                          height: 84, // UI-3 FIX: was 64 — two-line chips overflowed
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             itemCount: planState.todayEntries.length,
@@ -920,6 +929,8 @@ class _AddRevisionSheetState extends ConsumerState<_AddRevisionSheet> {
                 subjectName: chapter.subjectName,
                 learnedDate: DateTime.now().subtract(const Duration(days: 1)),
                 estimatedHours: chapter.estimatedHours,
+                chapterKey: chapter.chapterKey, // DATA-1
+                syllabusSource: chapter.syllabusSource,
               );
               ref.invalidate(upcomingRevisionsProvider);
               if (context.mounted) {
