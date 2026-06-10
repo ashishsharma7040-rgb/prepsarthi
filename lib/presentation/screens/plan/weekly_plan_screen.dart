@@ -377,7 +377,7 @@ class _DaySectionState extends ConsumerState<_DaySection> {
                         await ref.read(planProvider.notifier).markChapterStatus(
                           entry.chapterName, 'learned',
                         );
-                        await ref.read(authProvider.notifier).updateStreak();
+                        // DATA-5 FIX: streak handled once inside logSession() below
                       }
                       await ref.read(studyLogProvider.notifier).logSession(
                         chapterName: entry.chapterName,
