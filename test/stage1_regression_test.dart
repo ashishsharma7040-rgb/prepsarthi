@@ -100,6 +100,8 @@ void main() {
   });
 
   // ── DATA-2: upgrade-only mastery ───────────────────────────────────────────
+  // NOTE: applyStatusUpgradeOnly lives in WeaknessDetectorUseCase (same file as
+  // GeneratePlanUseCase), since it is part of progress/weakness application.
   group('DATA-2 onboarding snapshot is upgrade-only', () {
     ChapterSchema chapterAt(int mastery, String status) => ChapterSchema()
       ..name = 'Ind AS 116'
@@ -117,21 +119,21 @@ void main() {
     test('does NOT downgrade a chapter the student advanced in-app', () {
       // Student took it to Test Ready (7); onboarding said 'in_progress' (2).
       final ch = chapterAt(7, 'completed');
-      GeneratePlanUseCase.applyStatusUpgradeOnly(ch, 'in_progress');
+      WeaknessDetectorUseCase.applyStatusUpgradeOnly(ch, 'in_progress');
       expect(ch.masteryLevel, 7); // stays — the regression that was reported
       expect(ch.status, 'completed');
     });
 
     test('DOES upgrade when the snapshot is ahead', () {
       final ch = chapterAt(0, 'not_started');
-      GeneratePlanUseCase.applyStatusUpgradeOnly(ch, 'completed');
+      WeaknessDetectorUseCase.applyStatusUpgradeOnly(ch, 'completed');
       expect(ch.masteryLevel, 7);
       expect(ch.status, 'completed');
     });
 
     test('not_started is a no-op', () {
       final ch = chapterAt(3, 'learned');
-      GeneratePlanUseCase.applyStatusUpgradeOnly(ch, 'not_started');
+      WeaknessDetectorUseCase.applyStatusUpgradeOnly(ch, 'not_started');
       expect(ch.masteryLevel, 3);
       expect(ch.status, 'learned');
     });
