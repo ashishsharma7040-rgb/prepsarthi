@@ -116,6 +116,7 @@ class GeneratePlanUseCase {
     DateTime? syllabusCompletionTargetDate,
     String paceMode = 'balanced',
     Map<String, double> weakSubjectBoost = const {},
+    String? examType, // DATA-6: pass user.targetExam — see PlanNotifier
   }) async {
     final db = IsarService.db;
     final today =
@@ -127,10 +128,14 @@ class GeneratePlanUseCase {
       throw Exception('No chapters loaded. Run Syllabus Loader first.');
     }
 
-    // 1. Detect exam type from chapters' syllabusSource
-    final examType = _examTypeFromChapters(chapters);
-    final config = _configFor(examType);
-    final isCaFinal = examType == 'ca_final';
+    // 1. DATA-6 FIX: exam type comes from the USER, not inferred from
+    // whatever chapters happen to sit in the DB (exam-switch debris made
+    // the inference return the OLD exam). Inference kept as fallback only.
+    final resolvedExamType = (examType != null && examType.isNotEmpty)
+        ? (examType == 'both' ? 'jee_main' : examType)
+        : _examTypeFromChapters(chapters);
+    final config = _configFor(resolvedExamType);
+    final isCaFinal = resolvedExamType == 'ca_final';
 
     // 2. Apply existing CA Final progress from onboarding SharedPreferences
     if (isCaFinal) {
@@ -188,7 +193,7 @@ class GeneratePlanUseCase {
 
     // 7. Priority scoring (exam-type aware)
     final scores = studyChapters
-        .map((c) => _scoreChapter(c, examType, weakSubjectBoost))
+        .map((c) => _scoreChapter(c, resolvedExamType, weakSubjectBoost))
         .toList();
 
     final totalScore = scores.fold<double>(0, (a, b) => a + b);
@@ -281,6 +286,8 @@ class GeneratePlanUseCase {
             _round(math.min(math.min(maxPerDay, remaining), available));
 
         entries.add(PlanEntrySchema()
+          ..chapterKey = chapter.chapterKey // DATA-1: identity travels with entry
+          ..syllabusSource = chapter.syllabusSource
           ..chapterName = chapter.name
           ..subjectName = chapter.subjectName
           ..plannedDate = dateKey
@@ -301,11 +308,11 @@ class GeneratePlanUseCase {
 
     // 12. Phase 1 mock tests (weekly, rotating subjects)
     _injectPhase1Mocks(entries, studyChapters, today, syllabusPhaseEnd,
-        blackoutSet, config, examType);
+        blackoutSet, config, resolvedExamType);
 
     // 13. Phase 2 sessions (intensive revision + full mock tests)
     _injectPhase2Sessions(entries, studyChapters, syllabusPhaseEnd, examDate,
-        blackoutSet, dailyStudyHours, config, examType);
+        blackoutSet, dailyStudyHours, config, resolvedExamType);
 
     // 14. CA Final IBS integrated mocks
     if (isCaFinal && ibsChapters.isNotEmpty) {
@@ -369,6 +376,25 @@ class GeneratePlanUseCase {
   }
 
   // ── Determine exam type from chapter syllabusSource ───────────────────────
+  /// DATA-1: primary syllabusSource stamped onto synthetic (mock/marathon)
+  /// entries so stream filters include them. Non-chapter entries keep
+  /// chapterKey '' by design — they have no chapter identity.
+  static String _primarySourceFor(String examType) {
+    switch (examType) {
+      case 'neet':
+        return 'neet_ug';
+      case 'jee_advanced':
+        return 'jee_advanced';
+      case 'ca_final':
+        return 'ca_final';
+      case 'class12_boards':
+        return 'class12_boards';
+      case 'jee_main':
+      default:
+        return 'jee_main';
+    }
+  }
+
   static String _examTypeFromChapters(List<ChapterSchema> chapters) {
     if (chapters.isEmpty) return 'jee_main';
     final sources = chapters.map((c) => c.syllabusSource).toSet();
@@ -406,6 +432,7 @@ class GeneratePlanUseCase {
         final subject = subjects[rotation % subjects.length];
         final label = _mockLabel(examType, subject);
         entries.add(PlanEntrySchema()
+          ..syllabusSource = _primarySourceFor(examType) // DATA-1
           ..chapterName = label
           ..subjectName = subject
           ..plannedDate = dateKey
@@ -449,6 +476,7 @@ class GeneratePlanUseCase {
         final subject = subjects[rotation % subjects.length];
         final isFullTest = rotation % subjects.length == 0;
         entries.add(PlanEntrySchema()
+          ..syllabusSource = _primarySourceFor(examType) // DATA-1
           ..chapterName = isFullTest
               ? _fullMockLabel(examType)
               : _mockLabel(examType, subject)
@@ -521,6 +549,7 @@ class GeneratePlanUseCase {
       final dateKey = DateTime(cursor.year, cursor.month, cursor.day);
       if (!blackoutSet.contains(dateKey)) {
         entries.add(PlanEntrySchema()
+          ..syllabusSource = 'ca_final' // DATA-1: IBS is CA Final-only
           ..chapterName = 'IBS Integrated Case Study Mock – Session $session'
           ..subjectName = 'Paper 6: Integrated Business Solutions (IBS)'
           ..plannedDate = dateKey
@@ -595,14 +624,24 @@ class GeneratePlanUseCase {
     required String subjectName,
     required DateTime learnedDate,
     required double estimatedHours,
+    String chapterKey = '', // DATA-1: pass whenever the caller has the chapter
+    String syllabusSource = '',
   }) async {
     final db = IsarService.db;
 
-    // Upsert: update existing schedule if present, else create new
-    final existing = await db.revisionScheduleSchemas
-        .filter()
-        .chapterNameEqualTo(chapterName)
-        .findFirst();
+    // DATA-1 FIX: upsert by chapterKey when available. The old name-keyed
+    // upsert + unique index meant 'Kinematics' (jee_main) and 'Kinematics'
+    // (neet_ug) could never BOTH have revision schedules — one silently
+    // clobbered the other. Name match remains the legacy fallback only.
+    final existing = chapterKey.isNotEmpty
+        ? await db.revisionScheduleSchemas
+            .filter()
+            .chapterKeyEqualTo(chapterKey)
+            .findFirst()
+        : await db.revisionScheduleSchemas
+            .filter()
+            .chapterNameEqualTo(chapterName)
+            .findFirst();
 
     final revisionDates = _revisionIntervals
         .map((d) => learnedDate.add(Duration(days: d)))
@@ -612,6 +651,8 @@ class GeneratePlanUseCase {
         .toList();
 
     final schedule = existing ?? RevisionScheduleSchema();
+    schedule.chapterKey = chapterKey;
+    schedule.syllabusSource = syllabusSource;
     schedule.chapterName = chapterName;
     schedule.subjectName = subjectName;
     schedule.firstLearnedDate = learnedDate;
@@ -637,17 +678,28 @@ class GeneratePlanUseCase {
           DateTime(revDate.year, revDate.month, revDate.day);
 
       // Idempotent check: don't add duplicate revision entry
-      final exists = await db.planEntrySchemas
-          .filter()
-          .chapterNameEqualTo(chapterName)
-          .and()
-          .plannedDateEqualTo(dayKey)
-          .and()
-          .isRevisionEqualTo(true)
-          .count();
+      // (chapterKey-aware so cross-stream same-name entries don't block)
+      final dupQuery = chapterKey.isNotEmpty
+          ? db.planEntrySchemas
+              .filter()
+              .chapterKeyEqualTo(chapterKey)
+              .and()
+              .plannedDateEqualTo(dayKey)
+              .and()
+              .isRevisionEqualTo(true)
+          : db.planEntrySchemas
+              .filter()
+              .chapterNameEqualTo(chapterName)
+              .and()
+              .plannedDateEqualTo(dayKey)
+              .and()
+              .isRevisionEqualTo(true);
+      final exists = await dupQuery.count();
       if (exists > 0) continue;
 
       revEntries.add(PlanEntrySchema()
+        ..chapterKey = chapterKey
+        ..syllabusSource = syllabusSource
         ..chapterName = chapterName
         ..subjectName = subjectName
         ..plannedDate = dayKey
@@ -668,7 +720,7 @@ class GeneratePlanUseCase {
     await createInitialReviewCards(
       chapterName: chapterName,
       subjectName: subjectName,
-      syllabusSource: '',
+      syllabusSource: syllabusSource,
     );
   }
 
@@ -824,6 +876,14 @@ class WeaknessDetectorUseCase {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // DATA-2 FIX (part 1): apply the onboarding snapshot EXACTLY ONCE.
+      // It used to re-apply on every plan regeneration, overwriting months
+      // of in-app progress with the stale onboarding state ("regenerate
+      // plan → my finished chapter shows in_progress again").
+      const appliedFlag = 'ca_onboarding_progress_applied_v1';
+      if (prefs.getBool(appliedFlag) == true) return;
+
       final db = IsarService.db;
 
       // ── Chapter-level granularity (preferred) ──────────────────────────
@@ -833,18 +893,26 @@ class WeaknessDetectorUseCase {
             jsonDecode(chapterRaw) as Map<String, dynamic>;
         await db.writeTxn(() async {
           for (final ch in chapters) {
-            final sameSubject = chapters
-                .where((c) => c.classLevel == ch.classLevel)
-                .toList()
-              ..sort((a, b) => a.name.compareTo(b.name));
-            final idxInSubject = sameSubject.indexOf(ch);
-            final key = '${ch.classLevel}:$idxInSubject';
-            final status = chapterMap[key] as String?;
+            // DATA-3 FIX: prefer stable chapterKey keys (new writer format).
+            // Legacy positional '<classLevel>:<alphaIndex>' keys remain
+            // readable for pre-fix installs — but since this whole method
+            // now runs exactly once (DATA-2), a syllabus update can no
+            // longer shift indices and corrupt the mapping afterwards.
+            String? status = chapterMap[ch.chapterKey] as String?;
+            if (status == null) {
+              final sameSubject = chapters
+                  .where((c) => c.classLevel == ch.classLevel)
+                  .toList()
+                ..sort((a, b) => a.name.compareTo(b.name));
+              final idxInSubject = sameSubject.indexOf(ch);
+              status = chapterMap['${ch.classLevel}:$idxInSubject'] as String?;
+            }
             if (status == null) continue;
             _applyStatusToChapter(ch, status);
             await db.chapterSchemas.put(ch);
           }
         });
+        await prefs.setBool(appliedFlag, true); // DATA-2 (part 1)
         return;
       }
 
@@ -862,28 +930,40 @@ class WeaknessDetectorUseCase {
           await db.chapterSchemas.put(ch);
         }
       });
+      await prefs.setBool(appliedFlag, true); // DATA-2 (part 1)
     } catch (_) {
       // Non-fatal — planner continues normally without progress data
     }
   }
 
+  /// DATA-2 FIX (part 2): UPGRADE-ONLY. The onboarding snapshot may raise a
+  /// chapter's mastery, never lower it — previously 'in_progress' forced
+  /// masteryLevel back to 2 even on a chapter the student had taken to 7.
+  /// Pure & static so it is unit-testable (see stage1_regression_test.dart).
   static void _applyStatusToChapter(ChapterSchema ch, String status) {
+    applyStatusUpgradeOnly(ch, status);
+  }
+
+  static void applyStatusUpgradeOnly(ChapterSchema ch, String status) {
+    int targetLevel;
     switch (status) {
       case 'completed':
-        ch.masteryLevel = 7;
-        ch.status = 'completed';
+        targetLevel = 7;
         break;
       case 'revision_pending':
-        ch.masteryLevel = 4;
-        ch.status = 'revision_pending';
+        targetLevel = 4;
         break;
       case 'in_progress':
-        ch.masteryLevel = 2;
-        ch.status = 'in_progress';
+        targetLevel = 2;
         break;
       case 'not_started':
       default:
-        break;
+        return;
     }
+    if (targetLevel > ch.masteryLevel) {
+      ch.masteryLevel = targetLevel;
+      ch.status = status;
+    }
+    // else: in-app progress is ahead of the onboarding snapshot — keep it.
   }
 }

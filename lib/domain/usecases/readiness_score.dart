@@ -49,29 +49,39 @@ class ReadinessScore {
 // ── ReadinessCalculator — single source of calculation logic ────────────────
 // analytics_providers.dart exposes this via a Riverpod FutureProvider.
 class ReadinessCalculator {
-  static String _syllabusSourceForTarget(String? targetExam) {
+  // EXAM-1 FIX: every exam maps to its own source(s); 'both' merges two.
+  // (Interim until Stage-2 ExamRegistry — see Master Spec.)
+  static List<String> _syllabusSourcesForTarget(String? targetExam) {
     switch (targetExam) {
       case 'neet':
-        return 'neet_ug';
+        return ['neet_ug'];
       case 'jee_advanced':
-      case 'both':
+        return ['jee_advanced'];
+      case 'ca_final':
+        return ['ca_final'];
       case 'class12_boards':
+        return ['class12_boards'];
+      case 'both':
+        return ['jee_main', 'neet_ug'];
       case 'jee_main':
       default:
-        return 'jee_main';
+        return ['jee_main'];
     }
   }
 
   static Future<ReadinessScore> calculate() async {
     final db = IsarService.db;
     final user = await db.userSchemas.where().findFirst();
-    final userSource = _syllabusSourceForTarget(user?.targetExam);
+    final userSources = _syllabusSourcesForTarget(user?.targetExam);
 
-    // Raw data from Isar
-    final chapters  = await db.chapterSchemas
-        .filter()
-        .syllabusSourceEqualTo(userSource)
-        .findAll();
+    // Raw data from Isar — EXAM-1 FIX: merge all of the user's sources
+    final chapters = <ChapterSchema>[];
+    for (final src in userSources) {
+      chapters.addAll(await db.chapterSchemas
+          .filter()
+          .syllabusSourceEqualTo(src)
+          .findAll());
+    }
     final revisions = await db.revisionScheduleSchemas
         .filter().activeEqualTo(true).findAll();
 
@@ -82,9 +92,9 @@ class ReadinessCalculator {
         .timestampGreaterThan(fourteenDaysAgo)
         .findAll();
 
-    // ✅ MIGRATED: Read from Isar instead of SharedPreferences
-    final testSchemas    = await _loadTestSchemas(db);
-    final mistakeSchemas = await _loadMistakeSchemas(db);
+    // ✅ MIGRATED + DATA-4 FIX: read from Isar, filtered to THIS user's exam.
+    final testSchemas    = await _loadTestSchemas(db, user?.targetExam);
+    final mistakeSchemas = await _loadMistakeSchemas(db, userSources);
 
     // ── 1. Syllabus Completion (30%) ──────────────────────────────────────────
     final totalChapters = chapters.length;
@@ -313,19 +323,52 @@ class ReadinessCalculator {
 
   // ── Private Isar queries ───────────────────────────────────────────────────
 
-  /// Returns all mock test records sorted oldest-first (for recency slicing).
-  static Future<List<MockTestSchema>> _loadTestSchemas(Isar db) async {
+  /// Returns mock test records for THIS user's exam, oldest-first.
+  /// DATA-4 FIX: previously loaded ALL exams' tests — a student who switched
+  /// from JEE to CA Final kept JEE percentages inside their CA readiness.
+  /// Legacy tolerance: examType labels written by the old test-score screen
+  /// ('JEE Main', 'NEET', 'Mock') are matched loosely so old data still counts
+  /// for the matching exam family; the label model is rebuilt in Stage 2 (EXAM-4).
+  static Future<List<MockTestSchema>> _loadTestSchemas(
+      Isar db, String? targetExam) async {
     try {
-      return db.mockTestSchemas.where().sortByDate().findAll();
+      final all = await db.mockTestSchemas.where().sortByDate().findAll();
+      if (targetExam == null) return all;
+      bool matches(MockTestSchema t) {
+        final e = t.examType.toLowerCase();
+        switch (targetExam) {
+          case 'neet':
+            return e.contains('neet') || e == 'mock';
+          case 'both':
+            return e.contains('neet') || e.contains('jee') || e == 'mock';
+          case 'ca_final':
+            return e.contains('ca') || e == 'mock';
+          case 'class12_boards':
+            return e.contains('board') || e == 'mock';
+          case 'jee_advanced':
+          case 'jee_main':
+          default:
+            return e.contains('jee') || e == 'mock';
+        }
+      }
+      return all.where(matches).toList();
     } catch (_) {
       return [];
     }
   }
 
   /// Returns all mistake entry records.
-  static Future<List<MistakeEntrySchema>> _loadMistakeSchemas(Isar db) async {
+  static Future<List<MistakeEntrySchema>> _loadMistakeSchemas(
+      Isar db, List<String> userSources) async {
     try {
-      return db.mistakeEntrySchemas.where().findAll();
+      final all = await db.mistakeEntrySchemas.where().findAll();
+      // DATA-4 FIX: only this user's stream(s). Pre-migration mistakes have
+      // syllabusSource '' (no field existed) — keep counting those.
+      return all
+          .where((m) =>
+              m.syllabusSource.isEmpty ||
+              userSources.contains(m.syllabusSource))
+          .toList();
     } catch (_) {
       return [];
     }
