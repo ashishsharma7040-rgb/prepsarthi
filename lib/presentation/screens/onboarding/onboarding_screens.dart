@@ -15,6 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/exam_dates.dart';
+import '../../../core/utils/chapter_key.dart';
 import '../../../router/app_router.dart';
 import '../../providers/all_providers.dart';
 
@@ -351,8 +353,12 @@ class _CaAttemptSelectorScreenState
   // and November (week 2) every year. The student selects which one they are
   // targeting — we don't hardcode a year.
   static const _attempts = [
-    _CAAttempt('may',      '☀️', 'May Attempt',      'Held annually in the 2nd week of May'),
-    _CAAttempt('november', '🍂', 'November Attempt', 'Held annually in the 2nd week of November'),
+    // EXAM-2 FIX: ICAI holds CA Final THRICE yearly since 2025 — Jan / May / Sep.
+    // 'november' removed (legacy scheme). Verify exact dates against the latest
+    // ICAI notification each cycle; sessions shift by a few days.
+    _CAAttempt('january',   '❄️', 'January Attempt',   'Held in the 2nd week of January'),
+    _CAAttempt('may',       '☀️', 'May Attempt',       'Held in the 1st–2nd week of May'),
+    _CAAttempt('september', '🍂', 'September Attempt', 'Held in the 2nd week of September'),
   ];
 
   @override
@@ -500,32 +506,10 @@ class _ExamYearScreenState extends ConsumerState<ExamYearScreen> {
   String _daysLeft(String year) {
     final ob = ref.read(onboardingProvider);
     final y  = int.parse(year);
-    late final DateTime examDate;
-    switch (ob.targetExam) {
-      case 'ca_final':
-        // ICAI holds CA Final TWICE yearly: May (week 2) & November (week 2).
-        switch (ob.caAttempt) {
-          case 'november': examDate = DateTime(y, 11, 10); break;
-          case 'may':
-          default:         examDate = DateTime(y,  5, 12); break;
-        }
-        break;
-      case 'neet':
-        examDate = DateTime(y, 5, 4);
-        break;
-      case 'jee_advanced':
-        examDate = DateTime(y, 5, 25);
-        break;
-      case 'class12_boards':
-        examDate = DateTime(y, 2, 28);
-        break;
-      case 'both':
-        examDate = DateTime(y, 4, 13);
-        break;
-      case 'jee_main':
-      default:
-        examDate = DateTime(y, 4, 13);
-    }
+    // EXAM-2/EXAM-5 FIX: single source of truth — Jan/May/Sep CA cycle,
+    // boards = Mar 5, consistent with OnboardingState.examDate.
+    final DateTime examDate =
+        ExamDates.examDate(ob.targetExam, y, caAttempt: ob.caAttempt);
     final diff = examDate.difference(DateTime.now()).inDays;
     if (diff <= 0) return 'Past';
     const months = [
@@ -805,14 +789,19 @@ class _BlackoutDatesScreenState extends ConsumerState<BlackoutDatesScreen> {
   final Set<DateTime> _selected = {};
 
   // Common Indian holidays + exam rest days pre-populated as suggestions
-  static final _suggestions = [
-    _Holiday('🎉', 'Holi', DateTime(DateTime.now().year, 3, 14)),
-    _Holiday('🪔', 'Diwali', DateTime(DateTime.now().year, 10, 20)),
-    _Holiday('🎆', 'Dussehra', DateTime(DateTime.now().year, 10, 2)),
-    _Holiday('🎊', 'Eid', DateTime(DateTime.now().year, 4, 10)),
-    _Holiday('🎄', 'Christmas', DateTime(DateTime.now().year, 12, 25)),
-    _Holiday('🎓', 'Exam Day Buffer', DateTime(DateTime.now().year + 1, 1, 13)),
-  ];
+  // EXAM-7 FIX: getter (not static final) — recomputes each open; lunar-festival
+  // dates are approximations the student can adjust before adding.
+  List<_Holiday> get _suggestions {
+    final year = DateTime.now().year;
+    return [
+      _Holiday('🎉', 'Holi', DateTime(year, 3, 14)),
+      _Holiday('🪔', 'Diwali', DateTime(year, 10, 20)),
+      _Holiday('🎆', 'Dussehra', DateTime(year, 10, 2)),
+      _Holiday('🎊', 'Eid', DateTime(year, 4, 10)),
+      _Holiday('🎄', 'Christmas', DateTime(year, 12, 25)),
+      _Holiday('🎓', 'Exam Day Buffer', DateTime(year + 1, 1, 13)),
+    ];
+  }
 
   void _toggleSuggestion(DateTime date) {
     final key = DateTime(date.year, date.month, date.day);
@@ -1228,7 +1217,10 @@ class _CaChapterProgressScreenState
     for (final paper in _papers) {
       final chapters = paper.$5 as List<String>;
       for (int ci = 0; ci < chapters.length; ci++) {
-        _chapterStatus['${paper.$1}:$ci'] = 'not_started';
+        // DATA-3 FIX: stable chapterKey keys — positional keys corrupted
+        // saved progress whenever a syllabus update shifted indices.
+        _chapterStatus[ChapterKey.build('ca_final', chapters[ci])] =
+            'not_started';
       }
     }
   }
@@ -1236,7 +1228,8 @@ class _CaChapterProgressScreenState
   String _paperSummary(int paperNo, List<String> chapters) {
     int done = 0, rev = 0, ip = 0;
     for (int ci = 0; ci < chapters.length; ci++) {
-      final s = _chapterStatus['$paperNo:$ci'] ?? 'not_started';
+      final s = _chapterStatus[ChapterKey.build('ca_final', chapters[ci])] ??
+          'not_started';
       if (s == 'completed') { done++; }
       else if (s == 'revision_pending') { rev++; }
       else if (s == 'in_progress') { ip++; }
@@ -1251,7 +1244,7 @@ class _CaChapterProgressScreenState
   void _setAllInPaper(int paperNo, List<String> chapters, String status) {
     setState(() {
       for (int ci = 0; ci < chapters.length; ci++) {
-        _chapterStatus['$paperNo:$ci'] = status;
+        _chapterStatus[ChapterKey.build('ca_final', chapters[ci])] = status;
       }
     });
   }
@@ -1383,7 +1376,10 @@ class _CaChapterProgressScreenState
                             // "Set all" quick shortcuts
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                              child: Row(
+                              child: Wrap( // UI-3 FIX: was Row — overflowed on 360dp
+                                spacing: 0,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text('Set all:', style: theme.textTheme.labelSmall),
                                   const SizedBox(width: 8),
@@ -1410,7 +1406,8 @@ class _CaChapterProgressScreenState
                               padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                               child: Column(
                                 children: List.generate(chapters.length, (ci) {
-                                  final key = '$paperNo:$ci';
+                                  final key =
+                                      ChapterKey.build('ca_final', chapters[ci]);
                                   final chStatus = _chapterStatus[key] ?? 'not_started';
                                   final sInfo = _statuses.firstWhere((s) => s.$1 == chStatus);
                                   return Container(
@@ -1506,7 +1503,8 @@ class _CaChapterProgressScreenState
       final paperNo = paper.$1;
       final counts = <String, int>{};
       for (int ci = 0; ci < chapters.length; ci++) {
-        final s = _chapterStatus['$paperNo:$ci'] ?? 'not_started';
+        final s = _chapterStatus[ChapterKey.build('ca_final', chapters[ci])] ??
+            'not_started';
         counts[s] = (counts[s] ?? 0) + 1;
       }
       // Priority: completed > revision_pending > in_progress > not_started
