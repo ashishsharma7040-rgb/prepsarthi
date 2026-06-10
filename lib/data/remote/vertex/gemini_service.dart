@@ -10,6 +10,8 @@ import 'dart:convert';
 import 'package:firebase_vertexai/firebase_vertexai.dart';
 import 'package:flutter/foundation.dart';
 import '../../local/isar/schemas/schemas.dart';
+import '../../local/isar/isar_service.dart';
+import '../../content/exam_registry.dart';
 
 class GeminiService {
   static late GenerativeModel _model;
@@ -82,11 +84,28 @@ class GeminiService {
         maxOutputTokens: 2048,
       ),
       systemInstruction: Content.system(
-        'You are PrepSarthi AI, an expert academic coach specialising in JEE and NEET exam preparation. '
-        'You understand Indian competitive exam patterns, NCERT syllabus, NTA weightage, and student psychology. '
+        // PART 2A (EXAM-3): exam-neutral system prompt; the student's exam
+        // persona is injected per-prompt from ExamRegistry below.
+        'You are PrepSarthi AI, an expert academic coach for Indian '
+        'competitive and professional exams (JEE, NEET, CA, Boards). '
+        'You adapt advice to the exam context provided in each prompt and '
+        'understand exam patterns, syllabi, and student psychology. '
         'Always be encouraging yet honest. All responses must be valid JSON only — no preamble, no markdown fences.',
       ),
     );
+  }
+
+  // ── PART 2A (EXAM-3): per-prompt exam persona from ExamRegistry ──────────
+  /// One-line exam context injected into every prompt so the AI advises a CA
+  /// student like a CA mentor — not a JEE coach. Reads the user's exam from
+  /// Isar; falls back to a neutral line if unavailable (never throws).
+  static Future<String> _examContext() async {
+    try {
+      final user = await IsarService.db.userSchemas.where().findFirst();
+      return ExamRegistry.of(user?.targetExam).aiPersona;
+    } catch (_) {
+      return 'The student is preparing for a competitive Indian exam.';
+    }
   }
 
   // ── Core: safe API call with retry + timeout ──────────────────────────────
@@ -199,8 +218,9 @@ class GeminiService {
           (subjectHours[log.subjectName] ?? 0) + log.hoursStudied;
     }
 
+    final examContext = await _examContext();
     final prompt = '''
-Perform a detailed SWOT analysis for this JEE/NEET student. Return ONLY valid JSON.
+$examContext\nPerform a detailed SWOT analysis for this student. Return ONLY valid JSON.
 
 STUDENT DATA (last 30 days):
 - Overall syllabus completion: ${overallProgress.toStringAsFixed(1)}%
@@ -279,8 +299,9 @@ Provide 3 items per SWOT category, all specific to this student's data.
 
     final avgDailyHours = logs.isEmpty ? 0.0 : totalHours / 30;
 
+    final examContext = await _examContext();
     final prompt = '''
-Analyse this JEE/NEET student's study patterns. Return ONLY valid JSON.
+$examContext\nAnalyse this student's study patterns. Return ONLY valid JSON.
 
 PATTERN DATA:
 - Total logs analysed: ${logs.length}
@@ -333,8 +354,9 @@ Return this EXACT JSON (no other text):
         ? dailyHours
         : recentDailyHours.reduce((a, b) => a + b) / recentDailyHours.length;
 
+    final examContext = await _examContext();
     final prompt = '''
-You are a JEE/NEET academic planner. Create an optimised 7-day study plan. Return ONLY valid JSON array.
+$examContext\nYou are this student's academic planner. Create an optimised 7-day study plan. Return ONLY valid JSON array.
 
 CONTEXT:
 - Days until exam: $daysLeft
@@ -398,8 +420,9 @@ Return EXACTLY this JSON array (7 elements):
         .take(15)
         .toList();
 
+    final examContext = await _examContext();
     final prompt = '''
-For a JEE/NEET student starting "${chapter.name}" (${chapter.subjectName}, Class ${chapter.classLevel}),
+$examContext\nFor this student starting "${chapter.name}" (${chapter.subjectName}, Class ${chapter.classLevel}),
 identify prerequisites and related chapters.
 
 Available chapters in ${chapter.subjectName}: ${relatedNames.join(', ')}
@@ -436,8 +459,9 @@ Return ONLY valid JSON:
   }) async {
     final daysLeft = examDate.difference(DateTime.now()).inDays;
 
+    final examContext = await _examContext();
     final prompt = '''
-A JEE/NEET student missed $missedDays consecutive study days and has a backlog.
+$examContext\nThis student missed $missedDays consecutive study days and has a backlog.
 Help them recover. Return ONLY valid JSON.
 
 CONTEXT:

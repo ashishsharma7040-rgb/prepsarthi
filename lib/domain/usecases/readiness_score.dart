@@ -15,6 +15,7 @@
 
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
+import '../../data/content/exam_registry.dart';
 
 // ── ReadinessScore value object ────────────────────────────────────────────────
 class ReadinessScore {
@@ -49,25 +50,10 @@ class ReadinessScore {
 // ── ReadinessCalculator — single source of calculation logic ────────────────
 // analytics_providers.dart exposes this via a Riverpod FutureProvider.
 class ReadinessCalculator {
-  // EXAM-1 FIX: every exam maps to its own source(s); 'both' merges two.
-  // (Interim until Stage-2 ExamRegistry — see Master Spec.)
-  static List<String> _syllabusSourcesForTarget(String? targetExam) {
-    switch (targetExam) {
-      case 'neet':
-        return ['neet_ug'];
-      case 'jee_advanced':
-        return ['jee_advanced'];
-      case 'ca_final':
-        return ['ca_final'];
-      case 'class12_boards':
-        return ['class12_boards'];
-      case 'both':
-        return ['jee_main', 'neet_ug'];
-      case 'jee_main':
-      default:
-        return ['jee_main'];
-    }
-  }
+  /// PART 2A: delegates to ExamRegistry (completes the EXAM-1 fix properly;
+  /// 'both' merges jee_main + neet_ug via the registry spec).
+  static List<String> _syllabusSourcesForTarget(String? targetExam) =>
+      ExamRegistry.sourcesOf(targetExam);
 
   static Future<ReadinessScore> calculate() async {
     final db = IsarService.db;

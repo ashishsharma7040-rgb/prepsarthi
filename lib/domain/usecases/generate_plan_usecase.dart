@@ -16,6 +16,7 @@ import 'dart:math' as math;
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/local/isar/isar_service.dart';
+import '../../data/content/exam_registry.dart';
 
 // ── Exam-specific planner configuration ──────────────────────────────────────
 class _PlanConfig {
@@ -46,65 +47,19 @@ class GeneratePlanUseCase {
   static const List<double> _revisionDurationRatios = [0.30, 0.20, 0.15];
 
   // ── Per-exam configuration ─────────────────────────────────────────────────
+  /// PART 2A: planner tuning now comes from ExamRegistry — the single
+  /// source of truth. _PlanConfig is kept as the internal carrier type.
   static _PlanConfig _configFor(String examType) {
-    switch (examType) {
-      case 'ca_final':
-        // CA Final: 6 papers, 2 groups, intensive case-study paper (IBS)
-        // Needs more weeks before first mock (foundation required)
-        return const _PlanConfig(
-          effectiveHourRatio: 0.82,
-          maxChapterHoursPerDay: 2.5,
-          bufferDayInterval: 7,
-          mockTestStartWeek: 6,
-          mockTestHours: 3.0,
-          phase2BufferDays: 28,
-          phase2MockIntervalDays: 5,
-        );
-      case 'neet':
-        // NEET: Biology = 2x marks. 3h 20min exam. NCERT-heavy.
-        return const _PlanConfig(
-          effectiveHourRatio: 0.87,
-          maxChapterHoursPerDay: 2.0,
-          bufferDayInterval: 7,
-          mockTestStartWeek: 4,
-          mockTestHours: 3.5,
-          phase2BufferDays: 21,
-          phase2MockIntervalDays: 5,
-        );
-      case 'jee_advanced':
-        // JEE Advanced: harder, needs deep problem solving
-        return const _PlanConfig(
-          effectiveHourRatio: 0.88,
-          maxChapterHoursPerDay: 3.0,
-          bufferDayInterval: 7,
-          mockTestStartWeek: 4,
-          mockTestHours: 3.0,
-          phase2BufferDays: 21,
-          phase2MockIntervalDays: 5,
-        );
-      case 'class12_boards':
-        // Boards: 5-6 subjects, needs consistent revision
-        return const _PlanConfig(
-          effectiveHourRatio: 0.80,
-          maxChapterHoursPerDay: 2.5,
-          bufferDayInterval: 7,
-          mockTestStartWeek: 6,
-          mockTestHours: 3.0,
-          phase2BufferDays: 35,
-          phase2MockIntervalDays: 7,
-        );
-      case 'jee_main':
-      default:
-        return const _PlanConfig(
-          effectiveHourRatio: 0.85,
-          maxChapterHoursPerDay: 2.5,
-          bufferDayInterval: 7,
-          mockTestStartWeek: 3,
-          mockTestHours: 3.0,
-          phase2BufferDays: 21,
-          phase2MockIntervalDays: 5,
-        );
-    }
+    final k = ExamRegistry.of(examType).planner;
+    return _PlanConfig(
+      effectiveHourRatio: k.effectiveHourRatio,
+      maxChapterHoursPerDay: k.maxChapterHoursPerDay,
+      bufferDayInterval: k.bufferDayInterval,
+      mockTestStartWeek: k.mockTestStartWeek,
+      mockTestHours: k.mockTestHours,
+      phase2BufferDays: k.phase2BufferDays,
+      phase2MockIntervalDays: k.phase2MockIntervalDays,
+    );
   }
 
   // ── Main execute ───────────────────────────────────────────────────────────
@@ -379,21 +334,8 @@ class GeneratePlanUseCase {
   /// DATA-1: primary syllabusSource stamped onto synthetic (mock/marathon)
   /// entries so stream filters include them. Non-chapter entries keep
   /// chapterKey '' by design — they have no chapter identity.
-  static String _primarySourceFor(String examType) {
-    switch (examType) {
-      case 'neet':
-        return 'neet_ug';
-      case 'jee_advanced':
-        return 'jee_advanced';
-      case 'ca_final':
-        return 'ca_final';
-      case 'class12_boards':
-        return 'class12_boards';
-      case 'jee_main':
-      default:
-        return 'jee_main';
-    }
-  }
+  static String _primarySourceFor(String examType) =>
+      ExamRegistry.primarySourceOf(examType);
 
   static String _examTypeFromChapters(List<ChapterSchema> chapters) {
     if (chapters.isEmpty) return 'jee_main';

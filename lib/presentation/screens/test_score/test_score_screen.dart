@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../data/content/exam_registry.dart';
 import '../../../core/constants/app_colors.dart';
 import 'package:isar/isar.dart';
 import '../../../data/local/isar/isar_service.dart';
@@ -505,7 +506,9 @@ class _AddSheetState extends State<_AddSheet> {
   @override
   void initState() {
     super.initState();
-    _examType = widget.exam.contains('neet') ? 'NEET' : 'JEE Main';
+    // PART 2A/EXAM-4: label from ExamRegistry — CA Final mocks were
+    // being stored as 'JEE Main', corrupting readiness filtering.
+    _examType = ExamRegistry.of(widget.exam).mockTestLabel;
     _subs = _buildSubs(_examType);
   }
 

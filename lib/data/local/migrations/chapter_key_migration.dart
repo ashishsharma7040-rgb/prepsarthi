@@ -26,30 +26,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/chapter_key.dart';
 import '../isar/isar_service.dart';
+import '../../content/exam_registry.dart';
 
 class ChapterKeyMigration {
   ChapterKeyMigration._();
 
   static const _flag = 'migration_chapter_key_v1_done';
 
-  /// Same source mapping as the rest of the app (interim until ExamRegistry).
-  static List<String> _sourcesForExam(String? targetExam) {
-    switch (targetExam) {
-      case 'neet':
-        return ['neet_ug'];
-      case 'jee_advanced':
-        return ['jee_advanced'];
-      case 'ca_final':
-        return ['ca_final'];
-      case 'class12_boards':
-        return ['class12_boards'];
-      case 'both':
-        return ['jee_main', 'neet_ug'];
-      case 'jee_main':
-      default:
-        return ['jee_main'];
-    }
-  }
+  /// PART 2A: delegates to ExamRegistry — the single source of truth.
+  static List<String> _sourcesForExam(String? targetExam) =>
+      ExamRegistry.sourcesOf(targetExam);
 
   static Future<void> runIfNeeded() async {
     SharedPreferences prefs;

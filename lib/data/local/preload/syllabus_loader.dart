@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
 import '../isar/isar_service.dart';
 import '../../../core/utils/chapter_key.dart';
+import '../../content/exam_registry.dart';
 
 // ── Asset paths ──────────────────────────────────────────────────────────────
 const _jeeMainAsset = 'assets/syllabus/jee_main_2026.json';
@@ -33,26 +34,14 @@ const kSourceCaFinal = 'ca_final';
 
 class SyllabusLoader {
   // ── Maps exam → list of (asset, sourceId) pairs ──────────────────────────
+  // PART 2A: now driven by ExamRegistry — adding an exam needs only a new
+  // ExamSpec entry (with its syllabusAssets map) + the JSON file.
   static List<(String asset, String source)> _sourcesFor(String? targetExam) {
-    switch (targetExam) {
-      case 'jee_advanced':
-        return [(_jeeAdvAsset, kSourceJeeAdv)];
-      case 'neet':
-        return [(_neetAsset, kSourceNeet)];
-      case 'both':
-        // JEE Main + NEET together
-        return [
-          (_jeeMainAsset, kSourceJeeMain),
-          (_neetAsset, kSourceNeet),
-        ];
-      case 'class12_boards':
-        return [(_boardsAsset, kSourceBoards)];
-      case 'ca_final':
-        return [(_caFinalAsset, kSourceCaFinal)];
-      case 'jee_main':
-      default:
-        return [(_jeeMainAsset, kSourceJeeMain)];
-    }
+    final spec = ExamRegistry.of(targetExam);
+    return [
+      for (final src in spec.syllabusSources)
+        (spec.syllabusAssets[src]!, src),
+    ];
   }
 
   // ── PUBLIC: Guaranteed load for a specific exam ──────────────────────────

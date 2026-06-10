@@ -15,6 +15,7 @@ import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../core/utils/notification_helper.dart';
 import '../../core/constants/exam_dates.dart';
+import '../../data/content/exam_registry.dart';
 import '../../data/local/chapter_resolver.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 import '../../domain/usecases/streak_usecase.dart';
@@ -603,16 +604,8 @@ class PlanNotifier extends Notifier<PlanState> {
   // FIXED: class12_boards now correctly maps to 'class12_boards' source.
   // 'both' is handled in _load() directly (loads two sources) — this method
   // is only used as a fallback; 'both' shouldn't reach here.
-  String _syllabusSource(String? exam) {
-    switch (exam) {
-      case 'neet':           return 'neet_ug';
-      case 'jee_advanced':   return 'jee_advanced';
-      case 'ca_final':       return 'ca_final';
-      case 'class12_boards': return 'class12_boards';
-      case 'jee_main':
-      default:               return 'jee_main';
-    }
-  }
+  // PART 2A: delegates to ExamRegistry — the single source of truth.
+  String _syllabusSource(String? exam) => ExamRegistry.primarySourceOf(exam);
 
   DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 }

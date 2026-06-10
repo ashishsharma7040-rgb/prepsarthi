@@ -19,30 +19,16 @@
 import 'package:isar/isar.dart';
 
 import '../../core/utils/chapter_key.dart';
+import '../content/exam_registry.dart';
 import 'isar/schemas/chapter_schema.dart';
 import 'isar/schemas/user_schema.dart';
 
 class ChapterResolver {
   ChapterResolver._();
 
-  /// Same exam → sources mapping used across the app (until ExamRegistry).
-  static List<String> sourcesForExam(String? targetExam) {
-    switch (targetExam) {
-      case 'neet':
-        return ['neet_ug'];
-      case 'jee_advanced':
-        return ['jee_advanced'];
-      case 'ca_final':
-        return ['ca_final'];
-      case 'class12_boards':
-        return ['class12_boards'];
-      case 'both':
-        return ['jee_main', 'neet_ug'];
-      case 'jee_main':
-      default:
-        return ['jee_main'];
-    }
-  }
+  /// PART 2A: delegates to ExamRegistry — the single source of truth.
+  static List<String> sourcesForExam(String? targetExam) =>
+      ExamRegistry.sourcesOf(targetExam);
 
   /// Stream-aware chapter lookup. Pass [chapterKey] whenever the caller has
   /// it (plan entries, logs post-migration); [targetExam] disambiguates

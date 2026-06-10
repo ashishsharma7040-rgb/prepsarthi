@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../data/content/exam_registry.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/preload/syllabus_loader.dart';
 import '../../../router/app_router.dart';
@@ -577,17 +578,8 @@ class _GeneratingPlanScreenState extends ConsumerState<GeneratingPlanScreen> {
     );
   }
 
-  String _examLabel(String? exam) {
-    switch (exam) {
-      case 'jee_main':       return 'JEE Main';
-      case 'jee_advanced':   return 'JEE Advanced';
-      case 'neet':           return 'NEET UG';
-      case 'ca_final':       return 'CA Final';
-      case 'class12_boards': return 'Class 12 Boards';
-      case 'both':           return 'JEE + NEET';
-      default:               return 'Exam';
-    }
-  }
+  // PART 2A: display name now comes from ExamRegistry.
+  String _examLabel(String? exam) => ExamRegistry.displayNameOf(exam);
 
   String _paceDescription(String pace) {
     switch (pace) {
