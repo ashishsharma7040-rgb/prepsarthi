@@ -19,7 +19,7 @@ class UserSchema {
   String? photoUrl;
 
   // Onboarding
-  String targetExam = 'jee';
+  String targetExam = 'jee_main'; // DATA-9 FIX: 'jee' was not a valid exam id
   String examYear = '2026';
   double dailyStudyHours = 6.0;
   bool onboardingComplete = false;

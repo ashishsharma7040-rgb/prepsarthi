@@ -9,6 +9,13 @@ part 'chapter_schema.g.dart';
 class ChapterSchema {
   Id id = Isar.autoIncrement;
 
+  // DATA-1 (Master Spec): stable identity = '<syllabusSource>|<slug(name)>'.
+  // Backfilled by ChapterKeyMigration; set by SyllabusLoader for new rows.
+  // Uniqueness enforced in application logic, NOT by a unique index — see
+  // chapter_key.dart for why.
+  @Index()
+  String chapterKey = '';
+
   @Index()
   late String subjectName;
 

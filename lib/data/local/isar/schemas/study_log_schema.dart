@@ -8,6 +8,12 @@ class StudyLogSchema {
   @Index()
   late DateTime timestamp;
 
+  // DATA-1 (Master Spec): identity link ('' = legacy row, backfilled by
+  // ChapterKeyMigration). chapterName below is display-only.
+  @Index()
+  String chapterKey = '';
+  String syllabusSource = '';
+
   late String chapterName;
   late String subjectName;
   late double hoursStudied;

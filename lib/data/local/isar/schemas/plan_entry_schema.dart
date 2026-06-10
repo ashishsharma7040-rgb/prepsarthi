@@ -8,6 +8,15 @@ class PlanEntrySchema {
   @Index()
   late DateTime plannedDate;
 
+  // DATA-1 (Master Spec): identity link to the chapter ('' = legacy row,
+  // backfilled by ChapterKeyMigration). chapterName below is display-only.
+  @Index()
+  String chapterKey = '';
+
+  // Denormalized for cheap stream filtering (supersedes R1 BUG-2).
+  @Index()
+  String syllabusSource = '';
+
   late String chapterName;
   late String subjectName;
   late double plannedHours;

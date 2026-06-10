@@ -10,6 +10,12 @@ class MistakeEntrySchema {
   @Index()
   late DateTime date;
 
+  // DATA-1/DATA-4 (Master Spec): identity + stream tag — mistakes previously
+  // had NO exam/source field at all, so weakness analysis mixed streams.
+  @Index()
+  String chapterKey = '';
+  String syllabusSource = '';
+
   int mistakeTypeIndex = 0;
 
   @Index()

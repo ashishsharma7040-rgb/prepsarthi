@@ -5,7 +5,19 @@ part 'revision_schedule_schema.g.dart';
 class RevisionScheduleSchema {
   Id id = Isar.autoIncrement;
 
-  @Index(unique: true)
+  // DATA-1 (Master Spec): identity link. Upserts in scheduleRevisions() key
+  // on chapterKey, so 'Kinematics' in jee_main and neet_ug finally get
+  // SEPARATE revision schedules.
+  @Index()
+  String chapterKey = '';
+  String syllabusSource = '';
+
+  // ⚠️ unique:true REMOVED. The old unique index on a colliding name meant
+  // two streams' schedules silently clobbered each other — and adding a
+  // unique index on a new ''-defaulted field would collapse existing rows on
+  // first open. Uniqueness is now enforced by the upsert in
+  // GeneratePlanUseCase.scheduleRevisions().
+  @Index()
   late String chapterName;
 
   late String subjectName;
