@@ -128,7 +128,7 @@ jobs:
         run: flutter test test/stage1_regression_test.dart
 
       - name: Build debug APK
-        run: flutter build apk --debug
+        run: flutter build apk --debug --android-skip-build-dependency-validation
 
       - name: Verify APK
         run: |

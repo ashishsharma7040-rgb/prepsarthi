@@ -62,7 +62,12 @@ def configureSigningFromProperties = { signingConfig ->
 android {
     namespace   "com.prepsarthi.app"
     compileSdk  36
-    ndkVersion  "27.0.12077973"
+    // Use the NDK version bundled with the installed Flutter SDK instead of
+    // pinning an exact version. Pinning 27.0.12077973 forced Gradle to DOWNLOAD
+    // that NDK on CI, and a corrupted download broke the build
+    // ("Archive is not a ZIP archive"). The app has no native (externalNativeBuild)
+    // code, so the bundled NDK is sufficient and already present on the runner.
+    ndkVersion  flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
