@@ -724,6 +724,7 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
   }
 
   Future<void> _checkAchievements() async {
+    final db = IsarService.db; // still used below for achievements + user query
     final totalLogs = await StudyLogRepository.totalCount();
     final totalHours = state.fold(0.0, (s, l) => s + l.hoursStudied);
     final pyqCount = await StudyLogRepository.countByTag('pyq');
