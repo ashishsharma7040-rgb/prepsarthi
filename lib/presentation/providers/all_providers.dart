@@ -16,6 +16,7 @@ import '../../data/local/isar/isar_service.dart';
 import '../../core/utils/notification_helper.dart';
 import '../../core/constants/exam_dates.dart';
 import '../../data/content/exam_registry.dart';
+import '../../data/repositories/chapter_repository.dart';
 import '../../data/local/chapter_resolver.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 import '../../domain/usecases/streak_usecase.dart';
@@ -248,26 +249,10 @@ class PlanNotifier extends Notifier<PlanState> {
       return;
     }
 
-    // FIXED: 'both' loads jee_main + neet_ug combined.
-    // All other exams load their specific source.
-    final List<ChapterSchema> chapters;
-    if (user.targetExam == 'both') {
-      final jee = await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo('jee_main')
-          .findAll();
-      final neet = await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo('neet_ug')
-          .findAll();
-      chapters = [...jee, ...neet];
-    } else {
-      final source = _syllabusSource(user.targetExam);
-      chapters = await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo(source)
-          .findAll();
-    }
+    // PART 2B: stream-aware load via the single repository. ExamRegistry
+    // resolves 'both' → [jee_main, neet_ug] and every other exam to its
+    // source(s), so the old special-cased `if (both)` branch is gone.
+    final chapters = await ChapterRepository.forExam(user.targetExam);
 
     final today = _dayOnly(DateTime.now());
 
@@ -604,8 +589,8 @@ class PlanNotifier extends Notifier<PlanState> {
   // FIXED: class12_boards now correctly maps to 'class12_boards' source.
   // 'both' is handled in _load() directly (loads two sources) — this method
   // is only used as a fallback; 'both' shouldn't reach here.
-  // PART 2A: delegates to ExamRegistry — the single source of truth.
-  String _syllabusSource(String? exam) => ExamRegistry.primarySourceOf(exam);
+  // PART 2B: _syllabusSource() removed — chapter loading now goes through
+  // ChapterRepository.forExam(), which resolves sources via ExamRegistry.
 
   DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 }
@@ -796,68 +781,15 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
     // Group I (Papers 1–3) or Group II (Papers 4–6) are at 'learned' or better.
     final user = await db.userSchemas.where().findFirst();
     if (user?.targetExam == 'ca_final') {
-      // Group I: Papers 1, 2, 3 → classLevel 1, 2, 3
-      final g1Total = await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo('ca_final')
-          .and()
-          .group((q) => q
-              .classLevelEqualTo(1)
-              .or()
-              .classLevelEqualTo(2)
-              .or()
-              .classLevelEqualTo(3))
-          .count();
-      final g1Done = await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo('ca_final')
-          .and()
-          .group((q) => q
-              .classLevelEqualTo(1)
-              .or()
-              .classLevelEqualTo(2)
-              .or()
-              .classLevelEqualTo(3))
-          .and()
-          .group((q) => q
-              .statusEqualTo('learned')
-              .or()
-              .statusEqualTo('revised')
-              .or()
-              .statusEqualTo('tested'))
-          .count();
+      // PART 2B: via repository. Group I = Papers 1–3, Group II = Papers 4–6.
+      final (g1Total, g1Done) =
+          await ChapterRepository.statusProgressByClassLevels(
+              'ca_final', const [1, 2, 3]);
       if (g1Total > 0 && g1Done >= g1Total) await unlock('ca_group1');
 
-      // Group II: Papers 4, 5, 6 → classLevel 4, 5, 6
-      final g2Total = await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo('ca_final')
-          .and()
-          .group((q) => q
-              .classLevelEqualTo(4)
-              .or()
-              .classLevelEqualTo(5)
-              .or()
-              .classLevelEqualTo(6))
-          .count();
-      final g2Done = await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo('ca_final')
-          .and()
-          .group((q) => q
-              .classLevelEqualTo(4)
-              .or()
-              .classLevelEqualTo(5)
-              .or()
-              .classLevelEqualTo(6))
-          .and()
-          .group((q) => q
-              .statusEqualTo('learned')
-              .or()
-              .statusEqualTo('revised')
-              .or()
-              .statusEqualTo('tested'))
-          .count();
+      final (g2Total, g2Done) =
+          await ChapterRepository.statusProgressByClassLevels(
+              'ca_final', const [4, 5, 6]);
       if (g2Total > 0 && g2Done >= g2Total) await unlock('ca_group2');
     }
   }

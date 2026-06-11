@@ -16,6 +16,7 @@
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/content/exam_registry.dart';
+import '../../data/repositories/chapter_repository.dart';
 
 // ── ReadinessScore value object ────────────────────────────────────────────────
 class ReadinessScore {
@@ -60,14 +61,9 @@ class ReadinessCalculator {
     final user = await db.userSchemas.where().findFirst();
     final userSources = _syllabusSourcesForTarget(user?.targetExam);
 
-    // Raw data from Isar — EXAM-1 FIX: merge all of the user's sources
-    final chapters = <ChapterSchema>[];
-    for (final src in userSources) {
-      chapters.addAll(await db.chapterSchemas
-          .filter()
-          .syllabusSourceEqualTo(src)
-          .findAll());
-    }
+    // PART 2B: stream-aware load via the single repository (was a duplicated
+    // per-source loop here and in PlanNotifier).
+    final chapters = await ChapterRepository.forSources(userSources);
     final revisions = await db.revisionScheduleSchemas
         .filter().activeEqualTo(true).findAll();
 
