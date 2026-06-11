@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/local/isar/isar_service.dart';
 import '../../../data/local/chapter_resolver.dart';
+import '../../../data/repositories/mistake_repository.dart';
 import '../../providers/all_providers.dart';
 
 // ─── Legacy SharedPrefs migration key ────────────────────────────────────────
@@ -66,7 +67,6 @@ class MistakeNotifier extends AsyncNotifier<List<MistakeEntrySchema>> {
 
       final raw = prefs.getStringList(_kLegacyMistakesKey) ?? [];
       if (raw.isNotEmpty) {
-        final db = IsarService.db;
         final schemas = raw.map((s) {
           try {
             final j = jsonDecode(s) as Map<String, dynamic>;
@@ -77,9 +77,7 @@ class MistakeNotifier extends AsyncNotifier<List<MistakeEntrySchema>> {
         }).whereType<MistakeEntrySchema>().toList();
 
         if (schemas.isNotEmpty) {
-          await db.writeTxn(() async {
-            await db.mistakeEntrySchemas.putAll(schemas);
-          });
+          await MistakeRepository.putAll(schemas);
         }
         await prefs.remove(_kLegacyMistakesKey);
       }
@@ -92,12 +90,7 @@ class MistakeNotifier extends AsyncNotifier<List<MistakeEntrySchema>> {
 
   // ── Isar CRUD ──────────────────────────────────────────────────────────────
 
-  Future<List<MistakeEntrySchema>> _fetchAll() async {
-    final db = IsarService.db;
-    final all = await db.mistakeEntrySchemas.where().findAll();
-    all.sort((a, b) => b.date.compareTo(a.date));
-    return all;
-  }
+  Future<List<MistakeEntrySchema>> _fetchAll() => MistakeRepository.all();
 
   Future<void> addEntry({
     required MistakeType type,
@@ -130,23 +123,21 @@ class MistakeNotifier extends AsyncNotifier<List<MistakeEntrySchema>> {
       ..testName         = testName
       ..createdAt        = DateTime.now();
 
-    await db.writeTxn(() => db.mistakeEntrySchemas.put(schema));
+    await MistakeRepository.put(schema);
     state = AsyncData(await _fetchAll());
   }
 
   Future<void> toggleResolved(int id) async {
-    final db      = IsarService.db;
-    final current = await db.mistakeEntrySchemas.get(id);
+    final current = await MistakeRepository.byId(id);
     if (current == null) return;
     current.isResolved = !current.isResolved;
     current.resolvedAt = current.isResolved ? DateTime.now() : null;
-    await db.writeTxn(() => db.mistakeEntrySchemas.put(current));
+    await MistakeRepository.put(current);
     state = AsyncData(await _fetchAll());
   }
 
   Future<void> deleteEntry(int id) async {
-    final db = IsarService.db;
-    await db.writeTxn(() => db.mistakeEntrySchemas.delete(id));
+    await MistakeRepository.delete(id);
     state = AsyncData(await _fetchAll());
   }
 

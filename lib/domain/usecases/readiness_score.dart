@@ -17,6 +17,8 @@ import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/content/exam_registry.dart';
 import '../../data/repositories/chapter_repository.dart';
+import '../../data/repositories/mock_test_repository.dart';
+import '../../data/repositories/mistake_repository.dart';
 
 // ── ReadinessScore value object ────────────────────────────────────────────────
 class ReadinessScore {
@@ -75,8 +77,8 @@ class ReadinessCalculator {
         .findAll();
 
     // ✅ MIGRATED + DATA-4 FIX: read from Isar, filtered to THIS user's exam.
-    final testSchemas    = await _loadTestSchemas(db, user?.targetExam);
-    final mistakeSchemas = await _loadMistakeSchemas(db, userSources);
+    final testSchemas    = await MockTestRepository.forExam(user?.targetExam);
+    final mistakeSchemas = await MistakeRepository.forSources(userSources);
 
     // ── 1. Syllabus Completion (30%) ──────────────────────────────────────────
     final totalChapters = chapters.length;
@@ -298,59 +300,6 @@ class ReadinessCalculator {
           .dateGreaterThan(since)
           .sortByDate()
           .findAll();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  // ── Private Isar queries ───────────────────────────────────────────────────
-
-  /// Returns mock test records for THIS user's exam, oldest-first.
-  /// DATA-4 FIX: previously loaded ALL exams' tests — a student who switched
-  /// from JEE to CA Final kept JEE percentages inside their CA readiness.
-  /// Legacy tolerance: examType labels written by the old test-score screen
-  /// ('JEE Main', 'NEET', 'Mock') are matched loosely so old data still counts
-  /// for the matching exam family; the label model is rebuilt in Stage 2 (EXAM-4).
-  static Future<List<MockTestSchema>> _loadTestSchemas(
-      Isar db, String? targetExam) async {
-    try {
-      final all = await db.mockTestSchemas.where().sortByDate().findAll();
-      if (targetExam == null) return all;
-      bool matches(MockTestSchema t) {
-        final e = t.examType.toLowerCase();
-        switch (targetExam) {
-          case 'neet':
-            return e.contains('neet') || e == 'mock';
-          case 'both':
-            return e.contains('neet') || e.contains('jee') || e == 'mock';
-          case 'ca_final':
-            return e.contains('ca') || e == 'mock';
-          case 'class12_boards':
-            return e.contains('board') || e == 'mock';
-          case 'jee_advanced':
-          case 'jee_main':
-          default:
-            return e.contains('jee') || e == 'mock';
-        }
-      }
-      return all.where(matches).toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// Returns all mistake entry records.
-  static Future<List<MistakeEntrySchema>> _loadMistakeSchemas(
-      Isar db, List<String> userSources) async {
-    try {
-      final all = await db.mistakeEntrySchemas.where().findAll();
-      // DATA-4 FIX: only this user's stream(s). Pre-migration mistakes have
-      // syllabusSource '' (no field existed) — keep counting those.
-      return all
-          .where((m) =>
-              m.syllabusSource.isEmpty ||
-              userSources.contains(m.syllabusSource))
-          .toList();
     } catch (_) {
       return [];
     }

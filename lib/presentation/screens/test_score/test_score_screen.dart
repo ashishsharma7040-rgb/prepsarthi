@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/content/exam_registry.dart';
+import '../../../data/repositories/mock_test_repository.dart';
 import '../../../core/constants/app_colors.dart';
 import 'package:isar/isar.dart';
 import '../../../data/local/isar/isar_service.dart';
@@ -39,7 +40,6 @@ class TestScoreNotifier extends AsyncNotifier<List<MockTestSchema>> {
 
       final raw = prefs.getStringList(_kLegacyTestScoresKey) ?? [];
       if (raw.isNotEmpty) {
-        final db = IsarService.db;
         final schemas = raw.map((s) {
           try {
             final j = jsonDecode(s) as Map<String, dynamic>;
@@ -50,9 +50,7 @@ class TestScoreNotifier extends AsyncNotifier<List<MockTestSchema>> {
         }).whereType<MockTestSchema>().toList();
 
         if (schemas.isNotEmpty) {
-          await db.writeTxn(() async {
-            await db.mockTestSchemas.putAll(schemas);
-          });
+          await MockTestRepository.putAll(schemas);
         }
         // Clear the SharedPrefs data now that it's safely in Isar
         await prefs.remove(_kLegacyTestScoresKey);
@@ -66,12 +64,7 @@ class TestScoreNotifier extends AsyncNotifier<List<MockTestSchema>> {
 
   // ── Isar CRUD ──────────────────────────────────────────────────────────────
 
-  Future<List<MockTestSchema>> _fetchAll() async {
-    final db = IsarService.db;
-    final all = await db.mockTestSchemas.where().findAll();
-    all.sort((a, b) => b.date.compareTo(a.date));
-    return all;
-  }
+  Future<List<MockTestSchema>> _fetchAll() => MockTestRepository.all();
 
   Future<void> addEntry({
     required String testName,
@@ -93,14 +86,12 @@ class TestScoreNotifier extends AsyncNotifier<List<MockTestSchema>> {
     schema.subjectMarks = subjectMarks;
     schema.subjectMax   = subjectMax;
 
-    final db = IsarService.db;
-    await db.writeTxn(() => db.mockTestSchemas.put(schema));
+    await MockTestRepository.put(schema);
     state = AsyncData(await _fetchAll());
   }
 
   Future<void> deleteEntry(Id id) async {
-    final db = IsarService.db;
-    await db.writeTxn(() => db.mockTestSchemas.delete(id));
+    await MockTestRepository.delete(id);
     state = AsyncData(await _fetchAll());
   }
 
