@@ -15,6 +15,13 @@ import 'dart:math' as math;
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/content/exam_registry.dart';
+import 'weakness_detector_usecase.dart';
+
+// PART 2B (STRUCT-1): WeaknessDetectorUseCase moved to its own file.
+// - import: so THIS file can call it (execute() uses applyCaFinalProgress).
+// - export: so downstream files importing generate_plan_usecase.dart keep
+//   seeing WeaknessDetectorUseCase unchanged (no import edits needed anywhere).
+export 'weakness_detector_usecase.dart';
 
 // ── Exam-specific planner configuration ──────────────────────────────────────
 class _PlanConfig {
@@ -713,7 +720,3 @@ class GeneratePlanUseCase {
 
   static double _round(double v) => (v * 10).round() / 10;
 }
-
-// PART 2B (STRUCT-1): WeaknessDetectorUseCase moved to its own file.
-// Re-exported here so existing imports of this file keep working unchanged.
-export 'weakness_detector_usecase.dart';
