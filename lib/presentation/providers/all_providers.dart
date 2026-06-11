@@ -17,6 +17,7 @@ import '../../core/utils/notification_helper.dart';
 import '../../core/constants/exam_dates.dart';
 import '../../data/content/exam_registry.dart';
 import '../../data/repositories/chapter_repository.dart';
+import '../../data/repositories/plan_repository.dart';
 import '../../data/local/chapter_resolver.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 import '../../domain/usecases/streak_usecase.dart';
@@ -263,21 +264,13 @@ class PlanNotifier extends Notifier<PlanState> {
     bool inStream(PlanEntrySchema e) =>
         e.syllabusSource.isEmpty || userSources.contains(e.syllabusSource);
 
-    final todayEntriesRaw = await db.planEntrySchemas
-        .filter()
-        .plannedDateEqualTo(today)
-        .sortByOrderIndex()
-        .findAll();
+    // PART 2B: reads via PlanRepository; stream filter applied here.
+    final todayEntriesRaw = await PlanRepository.forDay(today);
     final todayEntries = todayEntriesRaw.where(inStream).toList();
 
     final weekEnd = today.add(const Duration(days: 7));
-    final weekEntriesRaw = await db.planEntrySchemas
-        .filter()
-        .plannedDateGreaterThan(today.subtract(const Duration(days: 1)))
-        .and()
-        .plannedDateLessThan(weekEnd)
-        .sortByPlannedDate()
-        .findAll();
+    final weekEntriesRaw = await PlanRepository.inRange(
+        today, weekEnd.subtract(const Duration(days: 1)));
     final weekEntries = weekEntriesRaw.where(inStream).toList();
 
     state = PlanState(

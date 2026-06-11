@@ -6,27 +6,15 @@ import 'package:isar/isar.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/repositories/plan_repository.dart';
 import '../../../data/local/isar/isar_service.dart';
 
 // Provider that loads plan entries for a given month range
 final _calendarEntriesProvider =
     FutureProvider.family<Map<DateTime, List<PlanEntrySchema>>, DateTimeRange>(
   (ref, range) async {
-    final db = IsarService.db;
-    final entries = await db.planEntrySchemas
-        .filter()
-        .plannedDateGreaterThan(range.start.subtract(const Duration(days: 1)))
-        .and()
-        .plannedDateLessThan(range.end.add(const Duration(days: 1)))
-        .findAll();
-
-    final map = <DateTime, List<PlanEntrySchema>>{};
-    for (final e in entries) {
-      final key =
-          DateTime(e.plannedDate.year, e.plannedDate.month, e.plannedDate.day);
-      map.putIfAbsent(key, () => []).add(e);
-    }
-    return map;
+    // PART 2B: via PlanRepository (was a raw range query + manual grouping).
+    return PlanRepository.groupedByDay(range.start, range.end);
   },
 );
 

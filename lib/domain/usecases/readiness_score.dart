@@ -19,6 +19,7 @@ import '../../data/content/exam_registry.dart';
 import '../../data/repositories/chapter_repository.dart';
 import '../../data/repositories/mock_test_repository.dart';
 import '../../data/repositories/mistake_repository.dart';
+import '../../data/repositories/plan_repository.dart';
 
 // ── ReadinessScore value object ────────────────────────────────────────────────
 class ReadinessScore {
@@ -149,13 +150,10 @@ class ReadinessCalculator {
     final consistencyRatio = (studyDays.length / 14.0).clamp(0.0, 1.0);
 
     // ── 5. Backlog Control (10%) ──────────────────────────────────────────────
-    final allPending = await db.planEntrySchemas
-        .filter().statusEqualTo('pending').count();
-    final overduePending = await db.planEntrySchemas
-        .filter()
-        .statusEqualTo('pending')
-        .plannedDateLessThan(now)
-        .count();
+    // PART 2B: via PlanRepository (was two raw count queries).
+    final allPending = await PlanRepository.pendingCount();
+    final overduePending =
+        await PlanRepository.pendingCount(overdueBefore: now);
     final backlogRatio = allPending > 0 ? overduePending / allPending : 0.0;
     final backlogScore = (1.0 - backlogRatio).clamp(0.0, 1.0);
 
