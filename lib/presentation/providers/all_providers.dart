@@ -18,6 +18,8 @@ import '../../core/constants/exam_dates.dart';
 import '../../data/content/exam_registry.dart';
 import '../../data/repositories/chapter_repository.dart';
 import '../../data/repositories/plan_repository.dart';
+import '../../data/repositories/revision_repository.dart';
+import '../../data/repositories/study_log_repository.dart';
 import '../../data/local/chapter_resolver.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 import '../../domain/usecases/streak_usecase.dart';
@@ -603,13 +605,7 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
   }
 
   Future<void> _load() async {
-    final db = IsarService.db;
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    final logs = await db.studyLogSchemas
-        .filter()
-        .timestampGreaterThan(cutoff)
-        .sortByTimestampDesc()
-        .findAll();
+    final logs = await StudyLogRepository.recent(days: 30);
     state = logs;
   }
 
@@ -646,7 +642,7 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
       ..isPomodoro = isPomodoro
       ..pomodoroSessions = pomodoroSessions;
 
-    await db.writeTxn(() async => db.studyLogSchemas.put(log));
+    await StudyLogRepository.put(log);
 
     // Update chapter hours AND keep status/mastery in sync
     // (chapter was resolved stream-aware above)
@@ -692,15 +688,7 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
   }
 
   Future<List<StudyLogSchema>> getLogsForDate(DateTime date) async {
-    final db = IsarService.db;
-    final start = DateTime(date.year, date.month, date.day);
-    final end = start.add(const Duration(days: 1));
-    return db.studyLogSchemas
-        .filter()
-        .timestampGreaterThan(start.subtract(const Duration(seconds: 1)))
-        .and()
-        .timestampLessThan(end)
-        .findAll();
+    return StudyLogRepository.forDay(date);
   }
 
   double hoursForDate(DateTime date) {
@@ -736,11 +724,9 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
   }
 
   Future<void> _checkAchievements() async {
-    final db = IsarService.db;
-    final totalLogs = await db.studyLogSchemas.count();
+    final totalLogs = await StudyLogRepository.totalCount();
     final totalHours = state.fold(0.0, (s, l) => s + l.hoursStudied);
-    final pyqCount =
-        await db.studyLogSchemas.filter().activityTagEqualTo('pyq').count();
+    final pyqCount = await StudyLogRepository.countByTag('pyq');
 
     Future<void> unlock(String badgeId) async {
       final badge = await db.achievementSchemas
@@ -902,8 +888,7 @@ final dashboardSummaryProvider = Provider<DashboardSummary>((ref) {
 
 final revisionProvider =
     FutureProvider<List<RevisionScheduleSchema>>((ref) async {
-  final db = IsarService.db;
-  return db.revisionScheduleSchemas.filter().activeEqualTo(true).findAll();
+  return RevisionRepository.active();
 });
 
 /// TASK 7: Count of revisions whose next pending date is today or in the past.
@@ -935,9 +920,8 @@ final overdueRevisionCountProvider = Provider<int>((ref) {
 
 final upcomingRevisionsProvider =
     FutureProvider<Map<String, List<RevisionScheduleSchema>>>((ref) async {
-  final db = IsarService.db;
   final all =
-      await db.revisionScheduleSchemas.filter().activeEqualTo(true).findAll();
+      await RevisionRepository.active();
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);

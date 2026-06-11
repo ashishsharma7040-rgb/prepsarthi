@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/repositories/plan_repository.dart';
+import '../../../data/repositories/study_log_repository.dart';
 import '../../../data/local/isar/isar_service.dart';
 
 // Provider that loads plan entries for a given month range
@@ -22,13 +22,7 @@ final _calendarEntriesProvider =
 final _calendarLogsProvider =
     FutureProvider.family<Map<DateTime, List<StudyLogSchema>>, DateTimeRange>(
   (ref, range) async {
-    final db = IsarService.db;
-    final logs = await db.studyLogSchemas
-        .filter()
-        .timestampGreaterThan(range.start)
-        .and()
-        .timestampLessThan(range.end)
-        .findAll();
+    final logs = await StudyLogRepository.inRange(range.start, range.end);
 
     final map = <DateTime, List<StudyLogSchema>>{};
     for (final l in logs) {

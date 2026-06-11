@@ -13,6 +13,7 @@ import '../../core/constants/app_colors.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../providers/all_providers.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
+import '../../data/repositories/revision_repository.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DAILY LOG SCREEN
@@ -645,7 +646,6 @@ class RevisionScheduleScreen extends ConsumerWidget {
   // ── Mark revision complete ───────────────────────────────────────────────
   Future<void> _completeRevision(
       BuildContext context, WidgetRef ref, RevisionScheduleSchema revision) async {
-    final db = IsarService.db;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -662,7 +662,7 @@ class RevisionScheduleScreen extends ConsumerWidget {
       revision.isFullyRevised = true;
     }
 
-    await db.writeTxn(() async => db.revisionScheduleSchemas.put(revision));
+    await RevisionRepository.put(revision);
 
     // Auto-log as revised
     await ref.read(studyLogProvider.notifier).logSession(
@@ -689,7 +689,6 @@ class RevisionScheduleScreen extends ConsumerWidget {
   // ── Postpone revision by 2 days ─────────────────────────────────────────
   Future<void> _postponeRevision(
       BuildContext context, WidgetRef ref, RevisionScheduleSchema revision) async {
-    final db = IsarService.db;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -704,7 +703,7 @@ class RevisionScheduleScreen extends ConsumerWidget {
     revision.scheduledDates.clear();
     revision.scheduledDates.addAll(updated);
 
-    await db.writeTxn(() async => db.revisionScheduleSchemas.put(revision));
+    await RevisionRepository.put(revision);
     ref.invalidate(upcomingRevisionsProvider);
 
     if (context.mounted) {

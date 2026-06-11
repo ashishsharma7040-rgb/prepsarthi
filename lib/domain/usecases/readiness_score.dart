@@ -20,6 +20,8 @@ import '../../data/repositories/chapter_repository.dart';
 import '../../data/repositories/mock_test_repository.dart';
 import '../../data/repositories/mistake_repository.dart';
 import '../../data/repositories/plan_repository.dart';
+import '../../data/repositories/revision_repository.dart';
+import '../../data/repositories/study_log_repository.dart';
 
 // ── ReadinessScore value object ────────────────────────────────────────────────
 class ReadinessScore {
@@ -67,15 +69,11 @@ class ReadinessCalculator {
     // PART 2B: stream-aware load via the single repository (was a duplicated
     // per-source loop here and in PlanNotifier).
     final chapters = await ChapterRepository.forSources(userSources);
-    final revisions = await db.revisionScheduleSchemas
-        .filter().activeEqualTo(true).findAll();
+    final revisions = await RevisionRepository.active();
 
     final now             = DateTime.now();
     final fourteenDaysAgo = now.subtract(const Duration(days: 14));
-    final recentLogs      = await db.studyLogSchemas
-        .filter()
-        .timestampGreaterThan(fourteenDaysAgo)
-        .findAll();
+    final recentLogs      = await StudyLogRepository.since(fourteenDaysAgo);
 
     // ✅ MIGRATED + DATA-4 FIX: read from Isar, filtered to THIS user's exam.
     final testSchemas    = await MockTestRepository.forExam(user?.targetExam);
