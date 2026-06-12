@@ -545,6 +545,23 @@ class _TodayChaptersCard extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  // WIRE-3: launch a focused Pomodoro pre-loaded with this
+                  // planned chapter. On completion the Pomodoro logs a session,
+                  // which (WIRE-1) auto-ticks this very entry — full loop.
+                  if (!isDone)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Start Pomodoro',
+                      icon: Icon(Icons.timer_outlined,
+                          size: 20, color: Colors.grey.shade500),
+                      onPressed: () => context.push(
+                        AppRoutes.pomodoro,
+                        extra: {
+                          'chapter': entry.chapterName as String,
+                          'subject': entry.subjectName as String,
+                        },
+                      ),
+                    ),
                 ],
               ),
             );

@@ -106,6 +106,14 @@ class _GeneratingPlanScreenState extends ConsumerState<GeneratingPlanScreen> {
             weakSubjectBoost: Map<String, double>.from(_weakBoosts),
           );
 
+      // Onboarding stale-syllabus fix: force planProvider (and every provider
+      // that watches it — dashboard summary, weakness radar, readiness) to
+      // rebuild fresh from the now-correct exam, exactly as a cold restart
+      // would. This disposes any orphaned in-flight _load() from the early
+      // build, so the dashboard can never open on the previous stream's
+      // subjects. Combined with the load-sequence guard in PlanNotifier._load.
+      ref.invalidate(planProvider);
+
       if (mounted) context.go(AppRoutes.dashboard);
     } catch (e) {
       if (mounted) {

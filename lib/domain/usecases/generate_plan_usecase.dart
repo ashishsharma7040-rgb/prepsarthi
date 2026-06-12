@@ -604,6 +604,7 @@ class GeneratePlanUseCase {
     schedule.subjectName = subjectName;
     schedule.firstLearnedDate = learnedDate;
     schedule.scheduledDates = revisionDates;
+    schedule.estimatedHours = estimatedHours; // PLAN-6: drives tile duration
     if (existing == null) {
       schedule.completedDates = [];
       schedule.completedCount = 0;

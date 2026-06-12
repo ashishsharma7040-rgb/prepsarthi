@@ -15,6 +15,7 @@ import '../../../core/constants/app_colors.dart';
 import 'package:isar/isar.dart';
 import '../../../data/local/isar/isar_service.dart';
 import '../../providers/all_providers.dart';
+import '../../providers/analytics_providers.dart';
 
 // ─── SharedPrefs migration key ──────────────────────────────────────────────
 
@@ -88,6 +89,11 @@ class TestScoreNotifier extends AsyncNotifier<List<MockTestSchema>> {
 
     await MockTestRepository.put(schema);
     state = AsyncData(await _fetchAll());
+    // WIRE-4: a new mock score must feed back into readiness immediately.
+    // ReadinessCalculator factors mock performance, so invalidating forces the
+    // dashboard readiness dial (and its weakness inputs) to recompute. Without
+    // this, a freshly entered mock changed nothing until the next study event.
+    ref.invalidate(readinessScoreProvider);
   }
 
   Future<void> deleteEntry(Id id) async {

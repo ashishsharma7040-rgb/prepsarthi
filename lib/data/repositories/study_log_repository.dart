@@ -61,6 +61,15 @@ class StudyLogRepository {
     return db.studyLogSchemas.count();
   }
 
+  /// DATA-8: sum of hoursStudied across the FULL history (not the 30-day
+  /// window). Achievement checks must use this so hours_100 etc. unlock
+  /// correctly once the user has more than a month of logs.
+  static Future<double> totalHours() async {
+    final db = IsarService.db;
+    final all = await db.studyLogSchemas.where().findAll();
+    return all.fold<double>(0.0, (s, l) => s + l.hoursStudied);
+  }
+
   /// Count of logs with a given activity tag (e.g. 'pyq').
   static Future<int> countByTag(String tag) async {
     final db = IsarService.db;

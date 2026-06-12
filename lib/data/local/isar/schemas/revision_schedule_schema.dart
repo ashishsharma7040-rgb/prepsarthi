@@ -26,6 +26,11 @@ class RevisionScheduleSchema {
   late List<DateTime> scheduledDates;
   List<DateTime> completedDates = [];
 
+  // PLAN-6: the chapter's estimated study hours, captured at scheduling time.
+  // Drives the per-revision duration shown on the revision tile instead of a
+  // hardcoded "~30 min". Defaults to 0 for legacy rows (tile falls back).
+  double estimatedHours = 0;
+
   int completedCount = 0;
   bool isFullyRevised = false;
   bool active = true;

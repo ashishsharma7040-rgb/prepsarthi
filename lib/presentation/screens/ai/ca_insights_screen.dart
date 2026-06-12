@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/remote/vertex/gemini_service.dart';
 import '../../providers/all_providers.dart';
+import '../../../domain/usecases/achievement_usecase.dart'; // WIRE-7
 
 // GeminiService is used as a static class — no provider needed
 
@@ -122,7 +123,10 @@ class _CaInsightsScreenState extends ConsumerState<CaInsightsScreen> {
   Future<void> _generate() async {
     setState(() { _loading = true; _error = null; });
 
-    final prompt = _buildPrompt(_selectedAttempt);
+    // WIRE-8: the prompt previously had ZERO personal context — every student
+    // got the same generic topic list. Now we inject days-to-exam, per-paper
+    // progress and the weakest papers so tips are ranked for THIS student.
+    final prompt = _buildPrompt(_selectedAttempt, _personalContext());
 
     try {
       final raw = await GeminiService.generateRaw(prompt);
@@ -138,6 +142,9 @@ class _CaInsightsScreenState extends ConsumerState<CaInsightsScreen> {
 
       topics.sort((a, b) => b.timesAsked.compareTo(a.timesAsked));
 
+      // WIRE-7: CA Insights counts as an AI analysis → 'ai_report' badge.
+      await AchievementUseCase.markAiReportGenerated();
+
       setState(() {
         _report = InsightReport(
           attempt: _selectedAttempt,
@@ -152,10 +159,57 @@ class _CaInsightsScreenState extends ConsumerState<CaInsightsScreen> {
     }
   }
 
-  String _buildPrompt(String attempt) => '''
+  // ── WIRE-8: personal study context block for the prompt ─────────────────
+  // Built from the student's real data: exam date, per-paper progress
+  // (hours-vs-estimate weighted), and the two weakest papers. Returns '' when
+  // there isn't enough data, so the prompt degrades gracefully.
+  String _personalContext() {
+    final user = ref.read(authProvider).user;
+    final chapters = ref.read(planProvider).chapters;
+    if (user == null || chapters.isEmpty) return '';
+
+    final daysLeft = user.examDate != null
+        ? user.examDate!.difference(DateTime.now()).inDays
+        : null;
+
+    // Per-paper (subject) progress 0–100.
+    final byPaper = <String, List<double>>{};
+    for (final c in chapters) {
+      final p = c.estimatedHours > 0
+          ? (c.hoursSpent / c.estimatedHours).clamp(0.0, 1.0)
+          : (c.masteryLevel / 7.0).clamp(0.0, 1.0);
+      byPaper.putIfAbsent(c.subjectName, () => []).add(p);
+    }
+    final paperPct = <String, int>{
+      for (final e in byPaper.entries)
+        e.key: ((e.value.reduce((a, b) => a + b) / e.value.length) * 100)
+            .round(),
+    };
+    if (paperPct.isEmpty) return '';
+
+    final sorted = paperPct.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final weakest = sorted.take(2).map((e) => e.key).join(', ');
+    final progressLine = sorted.reversed
+        .map((e) => '${e.key}: ${e.value}%')
+        .join(' · ');
+
+    return '''
+
+STUDENT CONTEXT (personalise the ranking and tips for this student):
+- ${daysLeft != null ? 'Days until exam: $daysLeft' : 'Exam date not set'}
+- Paper-wise syllabus progress: $progressLine
+- Weakest papers right now: $weakest
+- For the weakest papers, prefer high-yield topics that can still be covered in the remaining time, and make tips remediation-focused.
+- For strong papers, prefer rank-protecting topics (frequently asked, low prep cost).
+''';
+  }
+
+  String _buildPrompt(String attempt, String personalContext) => '''
 You are a CA Final examination expert with deep knowledge of ICAI question papers from 2018 to 2025.
 
 Analyse the PYQ patterns for CA Final (New Scheme - NSET) for the upcoming $attempt attempt.
+$personalContext
 
 Return ONLY valid JSON (no markdown, no preamble) in this exact structure:
 {

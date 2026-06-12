@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
-import '../../core/utils/notification_helper.dart';
 import '../../core/constants/exam_dates.dart';
 import '../../data/content/exam_registry.dart';
 import '../../data/repositories/chapter_repository.dart';
@@ -23,6 +22,7 @@ import '../../data/repositories/study_log_repository.dart';
 import '../../data/local/chapter_resolver.dart';
 import '../../domain/usecases/generate_plan_usecase.dart';
 import '../../domain/usecases/streak_usecase.dart';
+import '../../domain/usecases/achievement_usecase.dart';
 
 // ── Re-export extracted providers ─────────────────────────────────────────
 // Settings is now its own file. Export it here so all existing imports
@@ -238,6 +238,16 @@ class PlanState {
 }
 
 class PlanNotifier extends Notifier<PlanState> {
+  // ── Load-sequence guard (onboarding stale-syllabus fix) ──────────────────
+  // The generating-plan screen builds this provider early (to detect weak
+  // subjects), which kicks off _load() #1 while the DB still holds the default
+  // exam. updateOnboarding() then writes the real exam and refresh() runs
+  // _load() #2. With no ordering guarantee, the orphaned #1 could resolve LAST
+  // and clobber state back to the default stream — the "CA Final shows JEE
+  // subjects until restart" bug. Every _load() now takes a token; only the
+  // newest one is allowed to publish its result.
+  int _loadSeq = 0;
+
   @override
   PlanState build() {
     _load();
@@ -245,10 +255,11 @@ class PlanNotifier extends Notifier<PlanState> {
   }
 
   Future<void> _load() async {
+    final seq = ++_loadSeq;
     final db = IsarService.db;
     final user = await db.userSchemas.where().findFirst();
     if (user == null) {
-      state = const PlanState();
+      if (seq == _loadSeq) state = const PlanState();
       return;
     }
 
@@ -274,6 +285,9 @@ class PlanNotifier extends Notifier<PlanState> {
     final weekEntriesRaw = await PlanRepository.inRange(
         today, weekEnd.subtract(const Duration(days: 1)));
     final weekEntries = weekEntriesRaw.where(inStream).toList();
+
+    // A newer _load() superseded us while we were awaiting — drop this result.
+    if (seq != _loadSeq) return;
 
     state = PlanState(
       chapters: chapters,
@@ -377,9 +391,33 @@ class PlanNotifier extends Notifier<PlanState> {
         }
 
         await db.writeTxn(() async => db.chapterSchemas.put(chapter));
+
+        // WIRE-2: completing a (non-revision) plan entry must guarantee spaced
+        // revisions exist for a learned chapter. The auto-upgrade block above
+        // only schedules on the exact mastery<3 → 3 transition; a chapter
+        // already 'learned' via another path would otherwise never receive
+        // revisions from the plan-completion path. scheduleRevisions is
+        // idempotent (upserts by chapterKey, de-dups plan entries), so calling
+        // it again is safe.
+        if (!entry.isRevision &&
+            (chapter.status == 'learned' ||
+                chapter.status == 'revised' ||
+                chapter.status == 'tested')) {
+          await GeneratePlanUseCase.scheduleRevisions(
+            chapterName: chapter.name,
+            subjectName: chapter.subjectName,
+            learnedDate: chapter.firstLearnedDate ?? DateTime.now(),
+            estimatedHours: chapter.estimatedHours,
+            chapterKey: chapter.chapterKey,
+            syllabusSource: chapter.syllabusSource,
+          );
+        }
       }
     }
 
+    // WIRE-7: plan-completion is an achievement trigger (mastery_10, ca_group*,
+    // hours_*). Single authority — badge logic is never inlined again.
+    await AchievementUseCase.evaluate();
     await _load();
   }
 
@@ -421,6 +459,8 @@ class PlanNotifier extends Notifier<PlanState> {
       );
     }
     await db.writeTxn(() async => db.chapterSchemas.put(chapter));
+    // WIRE-7: mastery path is an achievement trigger (mastery_10, ca_group*).
+    await AchievementUseCase.evaluate();
     await _load();
   }
 
@@ -508,8 +548,15 @@ class PlanNotifier extends Notifier<PlanState> {
 
   /// TASK 9: Inserts a quick 1.5-hour plan entry for the next available slot
   /// this week for the given chapter/subject.
+  /// PART 3: now identity-aware — callers that know the chapter pass
+  /// [chapterKey]/[syllabusSource] so the new entry participates in every
+  /// chapterKey-based flow (WIRE-1 auto-complete, stream filters). Optional
+  /// and defaulted, so existing positional callers are untouched.
   Future<void> addQuickEntry(
-      String chapterName, String subjectName, {double hours = 1.5}) async {
+      String chapterName, String subjectName,
+      {double hours = 1.5,
+      String chapterKey = '',
+      String syllabusSource = ''}) async {
     final db = IsarService.db;
     final now = DateTime.now();
     final today = _dayOnly(now);
@@ -539,6 +586,8 @@ class PlanNotifier extends Notifier<PlanState> {
     final orderIndex = (maxOrder?.orderIndex ?? -1) + 1;
 
     final entry = PlanEntrySchema()
+      ..chapterKey = chapterKey
+      ..syllabusSource = syllabusSource
       ..chapterName = chapterName
       ..subjectName = subjectName
       ..plannedDate = targetDate
@@ -677,10 +726,58 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
       await db.writeTxn(() async => db.chapterSchemas.put(chapter));
     }
 
+    // ── WIRE-1: auto-complete the matching plan entry ───────────────────────
+    // Logging a session ticks off the matching PENDING, non-revision plan
+    // entry for today, so the planner reflects the log with no second manual
+    // step. We set status ONLY — logSession already added the hours to the
+    // chapter above, so routing through markPlanEntryStatus would double-count.
+    // Only "primary study" tags complete a study entry; 'revised'/'tested' have
+    // their own entry flows (revision screen / mock entry) so they must NOT
+    // close a planned learn block here.
+    final isPrimaryStudy = activityTag != 'revised' && activityTag != 'tested';
+    if (isPrimaryStudy) {
+      final resolvedKey = chapter?.chapterKey ?? (chapterKey ?? '');
+      final nowDay = DateTime.now();
+      final todayKey = DateTime(nowDay.year, nowDay.month, nowDay.day);
+      final pendingToday = await db.planEntrySchemas
+          .filter()
+          .plannedDateEqualTo(todayKey)
+          .and()
+          .isRevisionEqualTo(false)
+          .and()
+          .statusEqualTo('pending')
+          .findAll();
+      PlanEntrySchema? match;
+      if (resolvedKey.isNotEmpty) {
+        for (final e in pendingToday) {
+          if (e.chapterKey == resolvedKey) {
+            match = e;
+            break;
+          }
+        }
+      }
+      if (match == null) {
+        for (final e in pendingToday) {
+          if (e.chapterName == chapterName) {
+            match = e;
+            break;
+          }
+        }
+      }
+      if (match != null) {
+        final toSave = match
+          ..status = 'done'
+          ..actualHours = hours;
+        await db.writeTxn(() async => db.planEntrySchemas.put(toSave));
+      }
+    }
+
     await _load();
-    // Notify planProvider to reload so Syllabus Progress ring updates immediately
+    // Notify planProvider to reload so Syllabus Progress ring (and the
+    // now-completed plan entry) update immediately.
     ref.invalidate(planProvider);
-    await _checkAchievements();
+    // WIRE-7: single achievement authority, full-history totals (DATA-8).
+    await AchievementUseCase.evaluate();
     // DATA-5 FIX: ONE streak authority. The previous inline implementation
     // raced with AuthNotifier.updateStreak() (called from screens) — the
     // double-update bug. StreakUseCase.touchToday() is idempotent same-day.
@@ -721,57 +818,6 @@ class StudyLogNotifier extends Notifier<List<StudyLogSchema>> {
           (result[log.subjectName] ?? 0) + log.hoursStudied;
     }
     return result;
-  }
-
-  Future<void> _checkAchievements() async {
-    final db = IsarService.db; // still used below for achievements + user query
-    final totalLogs = await StudyLogRepository.totalCount();
-    final totalHours = state.fold(0.0, (s, l) => s + l.hoursStudied);
-    final pyqCount = await StudyLogRepository.countByTag('pyq');
-
-    Future<void> unlock(String badgeId) async {
-      final badge = await db.achievementSchemas
-          .filter()
-          .badgeIdEqualTo(badgeId)
-          .findFirst();
-      if (badge != null && !badge.unlocked) {
-        badge.unlocked = true;
-        badge.unlockedAt = DateTime.now();
-        await db.writeTxn(() async => db.achievementSchemas.put(badge));
-        await NotificationHelper.showAchievementNotification(
-          badgeTitle: badge.title,
-          badgeEmoji: badge.emoji,
-          description: badge.description,
-        );
-      }
-    }
-
-    if (totalLogs == 1) await unlock('first_log');
-    if (totalHours >= 10) await unlock('hours_10');
-    if (totalHours >= 50) await unlock('hours_50');
-    if (totalHours >= 100) await unlock('hours_100');
-    if (totalHours >= 250) await unlock('hours_250');
-    if (totalHours >= 500) await unlock('hours_500');
-    if (pyqCount >= 10) await unlock('pyq_10');
-    if (pyqCount >= 50) await unlock('pyq_50');
-    if (pyqCount >= 100) await unlock('pyq_100');
-
-    // ── CA Final Group badges ─────────────────────────────────────────────
-    // Check if the student is a CA Final user and whether all chapters in
-    // Group I (Papers 1–3) or Group II (Papers 4–6) are at 'learned' or better.
-    final user = await db.userSchemas.where().findFirst();
-    if (user?.targetExam == 'ca_final') {
-      // PART 2B: via repository. Group I = Papers 1–3, Group II = Papers 4–6.
-      final (g1Total, g1Done) =
-          await ChapterRepository.statusProgressByClassLevels(
-              'ca_final', const [1, 2, 3]);
-      if (g1Total > 0 && g1Done >= g1Total) await unlock('ca_group1');
-
-      final (g2Total, g2Done) =
-          await ChapterRepository.statusProgressByClassLevels(
-              'ca_final', const [4, 5, 6]);
-      if (g2Total > 0 && g2Done >= g2Total) await unlock('ca_group2');
-    }
   }
 
   Future<void> refresh() => _load();
@@ -1073,12 +1119,13 @@ extension PlanNotifierAI on PlanNotifier {
     final today = DateTime(now.year, now.month, now.day);
     final weekEnd = today.add(const Duration(days: 7));
 
-    // Remove only future pending entries (don't touch completed/skipped)
+    // DATA-7: clear ALL future pending entries (today onward), not just this
+    // week. The old query bounded deletion at weekEnd, so stale pending entries
+    // from a previous full plan survived beyond 7 days and showed as ghosts /
+    // duplicates alongside the regenerated week. Completed/skipped are untouched.
     final futureEntries = await db.planEntrySchemas
         .filter()
         .plannedDateGreaterThan(today.subtract(const Duration(days: 1)))
-        .and()
-        .plannedDateLessThan(weekEnd)
         .and()
         .statusEqualTo('pending')
         .findAll();

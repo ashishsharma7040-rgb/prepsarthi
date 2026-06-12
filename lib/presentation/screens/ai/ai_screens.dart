@@ -12,6 +12,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../data/remote/vertex/gemini_service.dart';
 import '../../providers/all_providers.dart';
 import '../../../router/app_router.dart';
+import '../../../domain/usecases/achievement_usecase.dart'; // WIRE-7: ai_report badge
+import '../../../domain/usecases/chapter_text_matcher.dart'; // WIRE-5/6
+import '../../../data/local/isar/isar_service.dart'; // ChapterSchema (re-export)
 import '../../../core/utils/connectivity_service.dart'; // ✅ FIX: wire connectivity_plus
 
 const _kSwotCacheKey = 'prepsarthi_swot_cache_v1';
@@ -63,6 +66,9 @@ final _swotReportProvider = FutureProvider<_CachedReport<SWOTReport?>>((ref) asy
     if (report != null) {
       await prefs.setString(_kSwotCacheKey, jsonEncode(report.toJson()));
       await prefs.setInt(_kSwotCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
+      // WIRE-7: first AI analysis unlocks the 'ai_report' badge — previously a
+      // dead badge with zero unlock sites.
+      await AchievementUseCase.markAiReportGenerated();
     }
     return _CachedReport(data: report, cachedAt: null);
   } catch (_) {
@@ -510,15 +516,18 @@ class _CacheBanner extends StatelessWidget {
   }
 }
 
-class _SWOTContentWidget extends StatelessWidget {
+// WIRE-5: ConsumerWidget so the Action Plan can match recommendations against
+// the student's own (stream-correct) chapters and offer one-tap "Add to Plan".
+class _SWOTContentWidget extends ConsumerWidget {
   final SWOTReport report;
   final bool isDark;
   const _SWOTContentWidget({required this.report, required this.isDark});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final accent = isDark ? DarkColors.primary : LightColors.primary;
+    final chapters = ref.watch(planProvider).chapters;
 
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
@@ -671,11 +680,15 @@ class _SWOTContentWidget extends StatelessWidget {
           ...report.recommendations.asMap().entries.map((e) {
             final i = e.key;
             final rec = e.value;
+            // WIRE-5: recognise a chapter inside the AI's action text → the
+            // tile shows an "Add to Plan" button wired to addQuickEntry.
+            final matched = ChapterTextMatcher.firstMatch(rec.action, chapters);
             return _RecommendationTile(
               index: i + 1,
               dayRange: rec.dayRange,
               action: rec.action,
               isDark: isDark,
+              matchedChapter: matched,
             ).animate(delay: (480 + i * 80).ms).fadeIn().slideX(begin: -0.1);
           }),
 
@@ -752,20 +765,24 @@ class _SWOTQuadrant extends StatelessWidget {
   }
 }
 
-class _RecommendationTile extends StatelessWidget {
+class _RecommendationTile extends ConsumerWidget {
   final int index;
   final String dayRange, action;
   final bool isDark;
+  // WIRE-5: when the recommendation text names one of the student's chapters,
+  // this carries it so the tile can offer one-tap scheduling.
+  final ChapterSchema? matchedChapter;
 
   const _RecommendationTile({
     required this.index,
     required this.dayRange,
     required this.action,
     required this.isDark,
+    this.matchedChapter,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final accent = isDark ? DarkColors.primary : LightColors.primary;
 
@@ -807,6 +824,43 @@ class _RecommendationTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(action,
                       style: theme.textTheme.bodySmall?.copyWith(height: 1.5)),
+                  // WIRE-5: one-tap "Add to Plan" for the recognised chapter.
+                  if (matchedChapter != null) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ActionChip(
+                        avatar: Icon(Icons.add_task_rounded,
+                            size: 16, color: accent),
+                        label: Text(
+                          'Add to Plan',
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: accent, fontWeight: FontWeight.w600),
+                        ),
+                        backgroundColor: accent.withOpacity(0.08),
+                        side: BorderSide(color: accent.withOpacity(0.3)),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () async {
+                          final c = matchedChapter!;
+                          await ref.read(planProvider.notifier).addQuickEntry(
+                                c.name,
+                                c.subjectName,
+                                chapterKey: c.chapterKey,
+                                syllabusSource: c.syllabusSource,
+                              );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    '📚 "${c.name}" added to this week\'s plan'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -893,6 +947,8 @@ final _patternReportProvider = FutureProvider<_CachedReport<PatternReport?>>((re
       'motivational_insight': report.motivationalInsight,
     }));
     await prefs.setInt(_kPatternCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
+    // WIRE-7: any AI analysis unlocks 'ai_report' (idempotent).
+    await AchievementUseCase.markAiReportGenerated();
     return _CachedReport(data: report, cachedAt: null);
   } catch (_) {
     // Offline — serve cached report
@@ -1114,7 +1170,9 @@ class _PatternContent extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ── This Week Focus ────────────────────────────────────────────
-          _BulletSection(
+          // WIRE-6: focus items are now ACTIONABLE — any item that names one
+          // of the student's chapters gets a one-tap "+ Plan" chip.
+          _ActionableBulletSection(
             emoji: '🎯', title: 'This Week\'s Focus',
             items: report.thisWeekFocus,
             color: accent, isDark: isDark,
@@ -1236,6 +1294,116 @@ class _BulletSection extends StatelessWidget {
                   ],
                 ),
               )),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── WIRE-6: Actionable bullet section ────────────────────────────────────────
+// Same look as _BulletSection, but each item is matched against the student's
+// stream-correct chapter list; recognised items show a "+ Plan" chip that adds
+// a quick study session via addQuickEntry (identity-aware).
+class _ActionableBulletSection extends ConsumerWidget {
+  final String emoji, title;
+  final List<String> items;
+  final Color color;
+  final bool isDark;
+
+  const _ActionableBulletSection({
+    required this.emoji,
+    required this.title,
+    required this.items,
+    required this.color,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final chapters = ref.watch(planProvider).chapters;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? DarkColors.surfaceCard : LightColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? DarkColors.outline : LightColors.outline,
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(title,
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(color: color)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...items.map((item) {
+            final matched = ChapterTextMatcher.firstMatch(item, chapters);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 6, height: 6,
+                    margin: const EdgeInsets.only(top: 6, right: 10),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: color,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(item,
+                        style: theme.textTheme.bodySmall?.copyWith(height: 1.5)),
+                  ),
+                  if (matched != null) ...[
+                    const SizedBox(width: 8),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () async {
+                        await ref.read(planProvider.notifier).addQuickEntry(
+                              matched.name,
+                              matched.subjectName,
+                              chapterKey: matched.chapterKey,
+                              syllabusSource: matched.syllabusSource,
+                            );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  '📚 "${matched.name}" added to this week\'s plan'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: color.withOpacity(0.3)),
+                        ),
+                        child: Text('+ Plan',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                                color: color, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

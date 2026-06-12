@@ -664,6 +664,14 @@ class RevisionScheduleScreen extends ConsumerWidget {
 
     await RevisionRepository.put(revision);
 
+    // WIRE-10: clear the matching revision plan entry so it doesn't linger as a
+    // ghost on the planner after the revision is marked done.
+    await RevisionRepository.completePlanEntry(
+      chapterKey: revision.chapterKey,
+      chapterName: revision.chapterName,
+      date: pending.first,
+    );
+
     // Auto-log as revised
     await ref.read(studyLogProvider.notifier).logSession(
       chapterName: revision.chapterName,
@@ -692,6 +700,13 @@ class RevisionScheduleScreen extends ConsumerWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
+    // Capture the pending future dates BEFORE shifting — these are the dates
+    // whose matching plan entries must move too (WIRE-10).
+    final shiftedDates = revision.scheduledDates.where((d) =>
+        !d.isBefore(today) &&
+        !revision.completedDates.any((c) =>
+            c.year == d.year && c.month == d.month && c.day == d.day)).toList();
+
     final updated = revision.scheduledDates.map((d) {
       if (!d.isBefore(today) && !revision.completedDates.any(
           (c) => c.year == d.year && c.month == d.month && c.day == d.day)) {
@@ -704,7 +719,18 @@ class RevisionScheduleScreen extends ConsumerWidget {
     revision.scheduledDates.addAll(updated);
 
     await RevisionRepository.put(revision);
+
+    // WIRE-10: move the matching revision plan entries forward by the same 2
+    // days so the planner no longer shows them on the old (now-empty) date.
+    await RevisionRepository.postponePlanEntries(
+      chapterKey: revision.chapterKey,
+      chapterName: revision.chapterName,
+      oldDates: shiftedDates,
+      days: 2,
+    );
+
     ref.invalidate(upcomingRevisionsProvider);
+    ref.invalidate(planProvider); // reflect the moved entries in the planner
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -748,6 +774,25 @@ class _RevisionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final revNo = revision.completedCount + 1;
     final totalRevs = revision.scheduledDates.length;
+
+    // PLAN-6: real per-revision duration from the chapter's estimated hours
+    // (ratios mirror GeneratePlanUseCase._revisionDurationRatios). Legacy rows
+    // with estimatedHours == 0 fall back to the old "~30 min".
+    String durationLabel() {
+      const ratios = [0.30, 0.20, 0.15];
+      final est = revision.estimatedHours;
+      if (est <= 0) return '~30 min';
+      final idx = (revNo - 1).clamp(0, ratios.length - 1);
+      final hrs = (est * ratios[idx]).clamp(0.25, 2.5);
+      final mins = (hrs * 60).round();
+      if (mins >= 60) {
+        final h = hrs == hrs.roundToDouble()
+            ? hrs.toStringAsFixed(0)
+            : hrs.toStringAsFixed(1);
+        return '~$h h';
+      }
+      return '~$mins min';
+    }
 
     final urgentColor = groupLabel == 'Today'
         ? LightColors.error
@@ -845,7 +890,7 @@ class _RevisionTile extends StatelessWidget {
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: urgentColor, fontWeight: FontWeight.w700,
                       )),
-                  Text('~30 min', style: theme.textTheme.labelSmall),
+                  Text(durationLabel(), style: theme.textTheme.labelSmall),
                 ],
               ),
             ],
