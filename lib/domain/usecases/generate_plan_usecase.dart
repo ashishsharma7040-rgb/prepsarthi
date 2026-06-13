@@ -15,6 +15,7 @@ import 'dart:math' as math;
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
 import '../../data/content/exam_registry.dart';
+import '../planner/feasibility_engine.dart'; // shared need formula (PLAN-2)
 import 'weakness_detector_usecase.dart';
 
 // PART 2B (STRUCT-1): WeaknessDetectorUseCase moved to its own file.
@@ -161,14 +162,129 @@ class GeneratePlanUseCase {
       throw Exception('All chapters have zero priority score.');
     }
 
-    // 8. Hour allocation proportional to priority score
-    final planDays = math.min(totalDays, 180);
-    final totalEffectiveHours = planDays * dailyStudyHours * effectiveRatio;
+    // ── 8. PLANNER v5 CORE (PLAN-1..5 fixes) ─────────────────────────────────
+    //
+    // 8a. CALENDAR PRE-PASS — single source of truth for what each calendar
+    //     day IS (study / buffer / mock / phase-2 spill). Fixes PLAN-4: buffer
+    //     and mock cadence are derived from the real calendar in ONE place,
+    //     instead of a `studyDayCount` that drifted because it incremented on
+    //     skips, blackouts and budget-full days alike.
+    final blackoutSet =
+        blackoutDates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
 
-    final allocatedHours = List<double>.generate(
+    final phase1StudyDays = <DateTime>[]; // coverage learning slots
+    final phase1MockDays = <DateTime>[]; // reserved Sundays (mocks own them)
+    final phase2SpillDays = <DateTime>[]; // phase-2 days open to coverage spill
+    final lastDay = examDate.subtract(const Duration(days: 1));
+    final highImpactWindowStart = examDate.subtract(const Duration(days: 28));
+
+    int eligibleStudySeen = 0; // counts real study-eligible days, for buffers
+    for (var d = today;
+        !d.isAfter(lastDay);
+        d = d.add(const Duration(days: 1))) {
+      final day = DateTime(d.year, d.month, d.day);
+      if (blackoutSet.contains(day)) continue;
+
+      if (!day.isAfter(syllabusPhaseEnd)) {
+        // Phase 1: Sundays past the mock-start threshold are mock-reserved.
+        final isMock = day.weekday == DateTime.sunday &&
+            day.difference(today).inDays >= config.mockTestStartWeek * 7;
+        if (isMock) {
+          phase1MockDays.add(day);
+          continue;
+        }
+        eligibleStudySeen++;
+        // Every Nth eligible study day is a buffer (catch-up) day — stable
+        // because it's counted over the calendar, never over loop iterations.
+        final isBuffer = config.bufferDayInterval > 0 &&
+            eligibleStudySeen % config.bufferDayInterval == 0;
+        if (isBuffer) continue;
+        phase1StudyDays.add(day);
+      } else {
+        // Phase 2 is revision/mock territory. Coverage may SPILL here at
+        // reduced intensity, but never onto mock Sundays or the high-impact
+        // Saturdays of the final 4 weeks (those days belong to Phase 2).
+        if (day.weekday == DateTime.sunday) continue;
+        if (day.weekday == DateTime.saturday &&
+            !day.isBefore(highImpactWindowStart)) {
+          continue;
+        }
+        phase2SpillDays.add(day);
+      }
+    }
+
+    // 8b. EXACT CAPACITY (PLAN-1: the 180-day cap is GONE). Capacity is the
+    //     sum over the *actual* remaining calendar — a 16-month CA Final plan
+    //     now budgets all 16 months, not a silent half.
+    const phase2SpillRatio = 0.5; // spill days keep ≥50% free for revision
+    final phase1Capacity =
+        phase1StudyDays.length * dailyStudyHours * effectiveRatio;
+    final spillCapacity = phase2SpillDays.length *
+        dailyStudyHours *
+        phase2SpillRatio *
+        effectiveRatio;
+
+    // 8c. NEED-BASED WATER-FILL ALLOCATION (PLAN-2). Each chapter's true need
+    //     comes from FeasibilityEngine.remainingNeed — the ONE formula shared
+    //     with the dashboard verdict, so the plan and the feasibility card can
+    //     never disagree. It is evidence-honest (declared mastery is only
+    //     believed up to a bounded head-start over logged hours + test
+    //     accuracy) and self-calibrated (per-subject cost multiplier learned
+    //     from the student's own completed chapters). Priority scores decide
+    //     WHO gets capacity first when it's scarce — but no chapter is ever
+    //     allocated beyond its need.
+    final calibration =
+        FeasibilityEngine.subjectCalibration(allStudyChapters);
+    final needs = List<double>.generate(
       studyChapters.length,
-      (i) => (scores[i] / totalScore) * totalEffectiveHours,
+      (i) => FeasibilityEngine.remainingNeed(studyChapters[i], calibration),
     );
+    final totalNeed = needs.fold<double>(0, (a, b) => a + b);
+    final coverageCapacity = phase1Capacity + spillCapacity;
+
+    final allocatedHours = List<double>.filled(studyChapters.length, 0.0);
+    if (totalNeed <= coverageCapacity) {
+      // Feasible: everyone gets full need. Surplus becomes DEPTH hours for
+      // high-priority chapters (practice/PYQ depth), capped at +40% of need so
+      // surplus deepens preparation instead of padding the calendar.
+      for (var i = 0; i < needs.length; i++) {
+        allocatedHours[i] = needs[i];
+      }
+      var surplus = coverageCapacity - totalNeed;
+      if (surplus > 0.5 && totalScore > 0) {
+        for (var i = 0; i < needs.length; i++) {
+          final depth =
+              math.min(surplus * (scores[i] / totalScore), needs[i] * 0.40);
+          allocatedHours[i] += depth;
+        }
+      }
+    } else {
+      // Infeasible horizon: water-fill by priority. High-score chapters are
+      // saturated to full need first; capacity is exhausted exactly; nobody
+      // exceeds need. (The dashboard Feasibility card carries the explicit
+      // "won't finish — trim list" warning to the student.)
+      var remainingCap = coverageCapacity;
+      final unsat = List<int>.generate(studyChapters.length, (i) => i)
+        ..removeWhere((i) => needs[i] <= 0);
+      for (var iter = 0; iter < 12 && remainingCap > 0.05 && unsat.isNotEmpty; iter++) {
+        final wSum =
+            unsat.fold<double>(0, (a, i) => a + math.max(scores[i], 0.001));
+        var distributed = 0.0;
+        final saturatedNow = <int>[];
+        for (final i in unsat) {
+          final share =
+              remainingCap * (math.max(scores[i], 0.001) / wSum);
+          final room = needs[i] - allocatedHours[i];
+          final give = math.min(share, room);
+          allocatedHours[i] += give;
+          distributed += give;
+          if (needs[i] - allocatedHours[i] <= 0.05) saturatedNow.add(i);
+        }
+        remainingCap -= distributed;
+        unsat.removeWhere(saturatedNow.contains);
+        if (distributed <= 0.05) break;
+      }
+    }
 
     // 9. Sort by priority descending + interleave subjects
     final sortedIndices =
@@ -176,67 +292,39 @@ class GeneratePlanUseCase {
           ..sort((a, b) => scores[b].compareTo(scores[a]));
     final interleaved = _interleaveBySubject(sortedIndices, studyChapters);
 
-    // 10. Build blackout set
-    final blackoutSet =
-        blackoutDates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
-
-    // 11. Distribute chapters into calendar slots
+    // 10/11. DISTRIBUTE over the precomputed day plan.
+    //   • PLAN-5: ONE global monotonic orderIndex across the whole plan, so
+    //     "today's order" is deterministic instead of resetting per chapter.
+    //   • PLAN-3 (generation side): spill days expose only their reduced
+    //     budget to coverage, and mock days were never offered to coverage at
+    //     all — so the injected mocks/high-impact sessions land on days the
+    //     study loop deliberately left room on.
     final dailyBudget = <DateTime, double>{};
+    final dailyCap = <DateTime, double>{
+      for (final d in phase1StudyDays) d: dailyStudyHours,
+      for (final d in phase2SpillDays) d: dailyStudyHours * phase2SpillRatio,
+    };
+    final coverageDays = <DateTime>[...phase1StudyDays, ...phase2SpillDays];
     final entries = <PlanEntrySchema>[];
-    int studyDayCount = 0;
-    DateTime cursor = today;
-
-    bool isBlackout(DateTime d) => blackoutSet.contains(d);
-    bool isBufferDay(int count) =>
-        count > 0 && count % config.bufferDayInterval == 0;
-    bool isPhase1(DateTime d) =>
-        !d.isAfter(syllabusPhaseEnd);
-
-    bool isMockDay(DateTime d, int count) {
-      if (d.weekday != DateTime.sunday) return false;
-      final weekThreshold = isPhase1(d)
-          ? config.mockTestStartWeek * 7
-          : 0; // Phase 2: every Sunday is mock
-      return count >= weekThreshold;
-    }
-
-    DateTime nextValidDay(DateTime from) {
-      var d = from.add(const Duration(days: 1));
-      while (isBlackout(d)) { d = d.add(const Duration(days: 1)); }
-      return d;
-    }
+    int globalOrder = 0;
+    int dayIdx = 0;
 
     for (final idx in interleaved) {
       final chapter = studyChapters[idx];
       double remaining = allocatedHours[idx];
-      int orderIndex = 0;
 
-      while (remaining > 0.05) {
-        if (cursor.isAfter(examDate.subtract(const Duration(days: 1)))) break;
-
-        final inPhase1 = isPhase1(cursor);
-
-        final shouldSkip = isBlackout(cursor) ||
-            (inPhase1 &&
-                (isBufferDay(studyDayCount) ||
-                    isMockDay(cursor, studyDayCount)));
-
-        if (shouldSkip) {
-          cursor = nextValidDay(cursor);
-          studyDayCount++;
-          continue;
-        }
-
-        final dateKey = DateTime(cursor.year, cursor.month, cursor.day);
+      while (remaining > 0.05 && dayIdx < coverageDays.length) {
+        final dateKey = coverageDays[dayIdx];
+        final cap = dailyCap[dateKey] ?? dailyStudyHours;
         final used = dailyBudget[dateKey] ?? 0.0;
-        final available = dailyStudyHours - used;
+        final available = cap - used;
 
         if (available <= 0.05) {
-          cursor = nextValidDay(cursor);
-          studyDayCount++;
+          dayIdx++;
           continue;
         }
 
+        final inPhase1 = !dateKey.isAfter(syllabusPhaseEnd);
         final maxPerDay = inPhase1
             ? math.min(config.maxChapterHoursPerDay, dailyStudyHours * 0.60)
             : math.min(
@@ -244,6 +332,10 @@ class GeneratePlanUseCase {
 
         final chunk =
             _round(math.min(math.min(maxPerDay, remaining), available));
+        if (chunk <= 0.05) {
+          dayIdx++;
+          continue;
+        }
 
         entries.add(PlanEntrySchema()
           ..chapterKey = chapter.chapterKey // DATA-1: identity travels with entry
@@ -252,31 +344,30 @@ class GeneratePlanUseCase {
           ..subjectName = chapter.subjectName
           ..plannedDate = dateKey
           ..plannedHours = chunk
-          ..orderIndex = orderIndex++
+          ..orderIndex = globalOrder++ // PLAN-5: globally monotonic
           ..isRevision = false
           ..status = 'pending');
 
         dailyBudget[dateKey] = used + chunk;
         remaining -= chunk;
-
-        if ((dailyStudyHours - (dailyBudget[dateKey] ?? 0)) < 0.05) {
-          cursor = nextValidDay(cursor);
-          studyDayCount++;
-        }
       }
+      if (dayIdx >= coverageDays.length) break; // calendar exhausted
     }
 
-    // 12. Phase 1 mock tests (weekly, rotating subjects)
-    _injectPhase1Mocks(entries, studyChapters, today, syllabusPhaseEnd,
-        blackoutSet, config, resolvedExamType);
+    // 12. Phase 1 mock tests — on the EXACT reserved Sundays from the
+    // pre-pass, consuming the day's budget (PLAN-3).
+    _injectPhase1Mocks(entries, studyChapters, phase1MockDays, dailyBudget,
+        config, resolvedExamType);
 
-    // 13. Phase 2 sessions (intensive revision + full mock tests)
+    // 13. Phase 2 sessions (intensive revision + full mock tests) — budget-aware
     _injectPhase2Sessions(entries, studyChapters, syllabusPhaseEnd, examDate,
-        blackoutSet, dailyStudyHours, config, resolvedExamType);
+        blackoutSet, dailyStudyHours, dailyBudget, config, resolvedExamType);
 
-    // 14. CA Final IBS integrated mocks
+    // 14. CA Final IBS integrated mocks (budget-aware: PLAN-3)
     if (isCaFinal && ibsChapters.isNotEmpty) {
-      _injectIbsMocks(entries, syllabusPhaseEnd, examDate, blackoutSet);
+      _injectIbsMocks(
+          entries, syllabusPhaseEnd, examDate, blackoutSet, dailyStudyHours,
+          dailyBudget);
     }
 
     // 15. Persist — clears old plan and writes new one
@@ -357,41 +448,33 @@ class GeneratePlanUseCase {
   void _injectPhase1Mocks(
     List<PlanEntrySchema> entries,
     List<ChapterSchema> studyChapters,
-    DateTime today,
-    DateTime syllabusPhaseEnd,
-    Set<DateTime> blackoutSet,
+    List<DateTime> reservedMockDays, // exact Sundays from the calendar pre-pass
+    Map<DateTime, double> dailyBudget, // PLAN-3: mocks consume the day budget
     _PlanConfig config,
     String examType,
   ) {
     if (studyChapters.isEmpty) return;
     final subjects = studyChapters.map((c) => c.subjectName).toSet().toList();
 
-    // Start at first Sunday after (mockTestStartWeek) weeks from today
-    var cursor = today.add(Duration(days: config.mockTestStartWeek * 7));
-    while (cursor.weekday != DateTime.sunday) {
-      cursor = cursor.add(const Duration(days: 1));
-    }
-
     int rotation = 0;
-    while (cursor.isBefore(syllabusPhaseEnd)) {
-      final dateKey = DateTime(cursor.year, cursor.month, cursor.day);
-      if (!blackoutSet.contains(dateKey)) {
-        final subject = subjects[rotation % subjects.length];
-        final label = _mockLabel(examType, subject);
-        entries.add(PlanEntrySchema()
-          ..syllabusSource = _primarySourceFor(examType) // DATA-1
-          ..chapterName = label
-          ..subjectName = subject
-          ..plannedDate = dateKey
-          ..plannedHours = config.mockTestHours
-          ..orderIndex = 99
-          ..isRevision = false
-          ..isMockTest = true
-          ..mockTestSubject = subject
-          ..status = 'pending');
-        rotation++;
-      }
-      cursor = cursor.add(const Duration(days: 7));
+    for (final dateKey in reservedMockDays) {
+      final subject = subjects[rotation % subjects.length];
+      final label = _mockLabel(examType, subject);
+      entries.add(PlanEntrySchema()
+        ..syllabusSource = _primarySourceFor(examType) // DATA-1
+        ..chapterName = label
+        ..subjectName = subject
+        ..plannedDate = dateKey
+        ..plannedHours = config.mockTestHours
+        ..orderIndex = 99
+        ..isRevision = false
+        ..isMockTest = true
+        ..mockTestSubject = subject
+        ..status = 'pending');
+      // PLAN-3: record the mock's hours so NOTHING else (revision backfill,
+      // quick-adds) can silently stack a 9–11h day on top of a mock.
+      dailyBudget[dateKey] = (dailyBudget[dateKey] ?? 0) + config.mockTestHours;
+      rotation++;
     }
   }
 
@@ -404,12 +487,29 @@ class GeneratePlanUseCase {
     DateTime examDate,
     Set<DateTime> blackoutSet,
     double dailyStudyHours,
+    Map<DateTime, double> dailyBudget, // PLAN-3: shared budget ledger
     _PlanConfig config,
     String examType,
   ) {
     if (studyChapters.isEmpty) return;
     final subjects = studyChapters.map((c) => c.subjectName).toSet().toList();
     int rotation = 0;
+
+    // PLAN-3: a session is only placed on a day with room; otherwise it walks
+    // forward to the next non-blackout day that fits. The student's daily
+    // budget is a hard ceiling everywhere now.
+    DateTime? placeWithBudget(DateTime from, double hours) {
+      var d = DateTime(from.year, from.month, from.day);
+      final limit = examDate.subtract(const Duration(days: 1));
+      while (!d.isAfter(limit)) {
+        if (!blackoutSet.contains(d) &&
+            (dailyBudget[d] ?? 0) + hours <= dailyStudyHours + 0.01) {
+          return d;
+        }
+        d = d.add(const Duration(days: 1));
+      }
+      return null;
+    }
 
     // Full mock tests every N days in Phase 2
     var cursor = syllabusPhaseEnd.add(const Duration(days: 2));
@@ -418,10 +518,13 @@ class GeneratePlanUseCase {
     }
 
     while (cursor.isBefore(examDate)) {
-      final dateKey = DateTime(cursor.year, cursor.month, cursor.day);
-      if (!blackoutSet.contains(dateKey)) {
-        final subject = subjects[rotation % subjects.length];
-        final isFullTest = rotation % subjects.length == 0;
+      final subject = subjects[rotation % subjects.length];
+      final isFullTest = rotation % subjects.length == 0;
+      final double hours = isFullTest
+          ? (config.mockTestHours + 0.5).clamp(3.0, 4.5).toDouble()
+          : config.mockTestHours;
+      final dateKey = placeWithBudget(cursor, hours);
+      if (dateKey != null) {
         entries.add(PlanEntrySchema()
           ..syllabusSource = _primarySourceFor(examType) // DATA-1
           ..chapterName = isFullTest
@@ -429,14 +532,13 @@ class GeneratePlanUseCase {
               : _mockLabel(examType, subject)
           ..subjectName = isFullTest ? 'Mixed / All Subjects' : subject
           ..plannedDate = dateKey
-          ..plannedHours = isFullTest
-              ? (config.mockTestHours + 0.5).clamp(3.0, 4.5)
-              : config.mockTestHours
+          ..plannedHours = hours.toDouble()
           ..orderIndex = 99
           ..isRevision = false
           ..isMockTest = true
           ..mockTestSubject = isFullTest ? 'Full' : subject
           ..status = 'pending');
+        dailyBudget[dateKey] = (dailyBudget[dateKey] ?? 0) + hours;
         rotation++;
       }
       cursor = cursor
@@ -444,8 +546,8 @@ class GeneratePlanUseCase {
     }
 
     // High-impact days in last 4 weeks before exam
-    _injectPhase2HighImpactDays(
-        entries, syllabusPhaseEnd, examDate, blackoutSet, dailyStudyHours);
+    _injectPhase2HighImpactDays(entries, syllabusPhaseEnd, examDate,
+        blackoutSet, dailyStudyHours, dailyBudget);
   }
 
   // Saturdays in last 4 weeks: alternating PYQ Marathon + Full Syllabus Revision
@@ -455,6 +557,7 @@ class GeneratePlanUseCase {
     DateTime examDate,
     Set<DateTime> blackoutSet,
     double dailyStudyHours,
+    Map<DateTime, double> dailyBudget, // PLAN-3
   ) {
     final start = examDate.subtract(const Duration(days: 28));
     if (start.isBefore(syllabusPhaseEnd)) return;
@@ -462,18 +565,22 @@ class GeneratePlanUseCase {
     int added = 0;
     while (cursor.isBefore(examDate) && added < 4) {
       final dateKey = DateTime(cursor.year, cursor.month, cursor.day);
+      final double hours = (dailyStudyHours * 0.9).clamp(4.0, 7.0).toDouble();
       if (cursor.weekday == DateTime.saturday &&
-          !blackoutSet.contains(dateKey)) {
+          !blackoutSet.contains(dateKey) &&
+          (dailyBudget[dateKey] ?? 0) + hours <=
+              dailyStudyHours + 0.01) {
         entries.add(PlanEntrySchema()
           ..chapterName = added.isEven
               ? 'PYQ Marathon – Mixed Subjects'
               : 'Full Syllabus Rapid Revision'
           ..subjectName = 'Mixed / Revision'
           ..plannedDate = dateKey
-          ..plannedHours = (dailyStudyHours * 0.9).clamp(4.0, 7.0)
+          ..plannedHours = hours
           ..orderIndex = 90 + added
           ..isRevision = true
           ..status = 'pending');
+        dailyBudget[dateKey] = (dailyBudget[dateKey] ?? 0) + hours;
         added++;
       }
       cursor = cursor.add(const Duration(days: 1));
@@ -486,26 +593,42 @@ class GeneratePlanUseCase {
     DateTime syllabusPhaseEnd,
     DateTime examDate,
     Set<DateTime> blackoutSet,
+    double dailyStudyHours,
+    Map<DateTime, double> dailyBudget, // PLAN-3
   ) {
+    const ibsHours = 3.0;
     var cursor = syllabusPhaseEnd.add(const Duration(days: 7));
     while (cursor.weekday != DateTime.saturday) {
       cursor = cursor.add(const Duration(days: 1));
     }
     int session = 1;
-    while (cursor.isBefore(examDate.subtract(const Duration(days: 7)))) {
-      final dateKey = DateTime(cursor.year, cursor.month, cursor.day);
-      if (!blackoutSet.contains(dateKey)) {
+    final limit = examDate.subtract(const Duration(days: 7));
+    while (cursor.isBefore(limit)) {
+      // PLAN-3: place on the first non-blackout day from the cadence anchor
+      // that still has room for a 3h case-study sitting.
+      var d = DateTime(cursor.year, cursor.month, cursor.day);
+      DateTime? dateKey;
+      while (d.isBefore(limit)) {
+        if (!blackoutSet.contains(d) &&
+            (dailyBudget[d] ?? 0) + ibsHours <= dailyStudyHours + 0.01) {
+          dateKey = d;
+          break;
+        }
+        d = d.add(const Duration(days: 1));
+      }
+      if (dateKey != null) {
         entries.add(PlanEntrySchema()
           ..syllabusSource = 'ca_final' // DATA-1: IBS is CA Final-only
           ..chapterName = 'IBS Integrated Case Study Mock – Session $session'
           ..subjectName = 'Paper 6: Integrated Business Solutions (IBS)'
           ..plannedDate = dateKey
-          ..plannedHours = 3.0
+          ..plannedHours = ibsHours
           ..orderIndex = 95
           ..isRevision = false
           ..isMockTest = true
           ..mockTestSubject = 'IBS'
           ..status = 'pending');
+        dailyBudget[dateKey] = (dailyBudget[dateKey] ?? 0) + ibsHours;
         session++;
       }
       cursor = cursor.add(const Duration(days: 14)); // fortnightly
@@ -619,11 +742,40 @@ class GeneratePlanUseCase {
     // Insert plan entries for each future revision date
     final today = DateTime.now();
     final revEntries = <PlanEntrySchema>[];
+
+    // PLAN-3 (runtime side): revisions are scheduled AFTER plan generation,
+    // so without a budget check they stacked on top of full study days
+    // (the 9–11h-day bug). Read the student's daily ceiling once; if the SM-2
+    // target day is already full, the revision slides up to 3 days forward to
+    // the first day with room (clinically, a 1–3 day slip barely moves the
+    // forgetting curve — far better than an impossible day the student skips).
+    final planUser = await db.userSchemas.where().findFirst();
+    final double dayCeiling = planUser?.dailyStudyHours ?? 6.0;
+
+    Future<DateTime> bestDayFor(DateTime wanted, double hours) async {
+      var d = wanted;
+      for (int tries = 0; tries < 4; tries++) {
+        final pending = await db.planEntrySchemas
+            .filter()
+            .plannedDateEqualTo(d)
+            .and()
+            .statusEqualTo('pending')
+            .findAll();
+        final used =
+            pending.fold<double>(0, (s, e) => s + e.plannedHours);
+        if (used + hours <= dayCeiling + 0.01) return d;
+        d = d.add(const Duration(days: 1));
+      }
+      return wanted; // every nearby day full → keep SM-2 date (memory wins)
+    }
+
     for (int i = 0; i < _revisionIntervals.length; i++) {
       final revDate = revisionDates[i];
       if (revDate.isBefore(today)) continue;
-      final dayKey =
+      final wantedKey =
           DateTime(revDate.year, revDate.month, revDate.day);
+      final hours = _round(durations[i].toDouble());
+      final dayKey = await bestDayFor(wantedKey, hours);
 
       // Idempotent check: don't add duplicate revision entry
       // (chapterKey-aware so cross-stream same-name entries don't block)
@@ -651,7 +803,7 @@ class GeneratePlanUseCase {
         ..chapterName = chapterName
         ..subjectName = subjectName
         ..plannedDate = dayKey
-        ..plannedHours = _round(durations[i])
+        ..plannedHours = hours
         ..orderIndex = 50 + i
         ..isRevision = true
         ..revisionOf = chapterName

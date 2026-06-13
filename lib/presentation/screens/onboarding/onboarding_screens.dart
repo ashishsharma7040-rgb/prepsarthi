@@ -19,6 +19,7 @@ import '../../../core/constants/exam_dates.dart';
 import '../../../core/utils/chapter_key.dart';
 import '../../../router/app_router.dart';
 import '../../providers/all_providers.dart';
+import '../../../data/local/preload/syllabus_loader.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WELCOME SCREEN
@@ -96,6 +97,7 @@ class TargetSelectorScreen extends ConsumerStatefulWidget {
 
 class _TargetSelectorScreenState extends ConsumerState<TargetSelectorScreen> {
   String? _selected;
+  bool _busy = false;
 
   final _targets = [
     _Target('jee_main', '📐', 'JEE Main', 'Engineering entrance – NTA', 'Physics, Chemistry, Mathematics', true),
@@ -160,16 +162,42 @@ class _TargetSelectorScreenState extends ConsumerState<TargetSelectorScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: _selected == null ? null : () {
-                  ref.read(onboardingProvider.notifier).setTarget(_selected!);
-                  // CA Final → pick attempt (May/Nov/Jan/Sep) before year
-                  if (_selected == 'ca_final') {
-                    context.go(AppRoutes.caAttemptSelector);
-                  } else {
-                    context.go(AppRoutes.examYear);
-                  }
-                },
-                child: const Text('Continue'),
+                onPressed: _selected == null || _busy
+                    ? null
+                    : () async {
+                        final exam = _selected!;
+                        setState(() => _busy = true);
+                        ref.read(onboardingProvider.notifier).setTarget(exam);
+                        // ROOT FIX: commit the exam to the DB + load its
+                        // syllabus NOW, so no later onboarding screen (or the
+                        // dashboard) can read the default JEE syllabus for a
+                        // CA Final student. planProvider is invalidated so it
+                        // rebuilds against the correct stream immediately.
+                        try {
+                          await ref
+                              .read(authProvider.notifier)
+                              .setTargetExamEarly(exam);
+                          await SyllabusLoader.ensureLoadedForExam(exam);
+                          ref.invalidate(planProvider);
+                        } catch (_) {
+                          // Non-fatal: the generating screen re-runs both steps
+                          // as a backstop before the plan is built.
+                        }
+                        if (!context.mounted) return;
+                        setState(() => _busy = false);
+                        // CA Final → pick attempt (May/Nov/Jan/Sep) before year
+                        if (exam == 'ca_final') {
+                          context.go(AppRoutes.caAttemptSelector);
+                        } else {
+                          context.go(AppRoutes.examYear);
+                        }
+                      },
+                child: _busy
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Continue'),
               ),
               const SizedBox(height: 8),
             ],

@@ -8,15 +8,87 @@
 // Remaining providers: WeaknessRadar, BacklogRecoveryPlan, ExamMode (unchanged).
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar/isar.dart';
 import '../../data/local/isar/schemas/chapter_schema.dart';
 import '../../data/local/isar/schemas/readiness_snapshot_schema.dart';
+import '../../data/local/isar/isar_service.dart';
 // ✅ Delegate to single engine — no formula duplication
 import '../../domain/usecases/readiness_score.dart';
+import '../../domain/planner/feasibility_engine.dart';
+import '../../domain/planner/pass_probability_engine.dart';
+import '../../domain/planner/decision_impact_engine.dart';
 import 'all_providers.dart';
 
 // Re-export so existing widgets that import ReadinessScore from analytics_providers
 // continue to work without any change.
 export '../../domain/usecases/readiness_score.dart' show ReadinessScore;
+export '../../domain/planner/feasibility_engine.dart'
+    show FeasibilityResult, FeasibilityStatus, TrimCandidate;
+export '../../domain/planner/pass_probability_engine.dart'
+    show PassProbabilityResult, GroupProbability, PaperEstimate, ProbabilityReason;
+export '../../domain/planner/decision_impact_engine.dart'
+    show ImpactAction, ActionType;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PART 4 — SYLLABUS FEASIBILITY (Planner v5 Stage 1; PLAN-1/PLAN-2 signal)
+// ═══════════════════════════════════════════════════════════════════════════
+// "Can I realistically finish in time?" — the one question the old planner
+// never answered. Recomputes whenever the plan/chapters change; invalidate
+// after study events the same way as readinessScoreProvider.
+final feasibilityProvider = FutureProvider<FeasibilityResult>((ref) async {
+  final user = ref.watch(authProvider).user;
+  final chapters = ref.watch(planProvider).chapters;
+  if (user == null || chapters.isEmpty) return FeasibilityResult.noData;
+
+  List<DateTime> blackouts = const [];
+  try {
+    final settings =
+        await IsarService.db.userSettingsSchemas.where().findFirst();
+    blackouts = settings?.blackoutDates ?? const [];
+  } catch (_) {}
+
+  // ── Stage-4 seed: REAL pace, with a DYNAMIC window (Fix B). Far from the
+  // exam, a 14-day average is stable; near it, responsiveness matters more
+  // than smoothness — a bad final week must show immediately. Window shrinks
+  // as the exam approaches: >90d → 14d, 30–90d → 10d, 14–30d → 7d, <14d → 3d.
+  double? recentDailyActualHours;
+  try {
+    final user = ref.watch(authProvider).user;
+    final daysLeft = user?.examDate != null
+        ? user!.examDate!.difference(DateTime.now()).inDays
+        : 999;
+    final window = daysLeft <= 14
+        ? 3
+        : daysLeft <= 30
+            ? 7
+            : daysLeft <= 90
+                ? 10
+                : 14;
+    final minActiveDays = window <= 3 ? 2 : 4;
+    final cutoff = DateTime.now().subtract(Duration(days: window));
+    final logs = await IsarService.db.studyLogSchemas
+        .filter()
+        .timestampGreaterThan(cutoff)
+        .findAll();
+    final activeDays = logs
+        .map((l) =>
+            DateTime(l.timestamp.year, l.timestamp.month, l.timestamp.day))
+        .toSet()
+        .length;
+    if (activeDays >= minActiveDays) {
+      final totalHours = logs.fold<double>(0, (s, l) => s + l.hoursStudied);
+      recentDailyActualHours = totalHours / window;
+    }
+  } catch (_) {}
+
+  return FeasibilityEngine.assess(
+    chapters: chapters,
+    hoursByWeekday: List<double>.filled(7, user.dailyStudyHours),
+    examDate: user.examDate,
+    blackoutDates: blackouts,
+    recentDailyActualHours: recentDailyActualHours,
+  );
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXAM READINESS SCORE  — delegates to ReadinessCalculator (domain engine)
@@ -361,4 +433,27 @@ final examModeProvider = Provider<ExamMode>((ref) {
   }
 
   return ExamMode.inactive;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLAGSHIP — Pass Probability (CA Final) + Decision Impact Ranking
+// ═══════════════════════════════════════════════════════════════════════════
+// One shared probability primitive read by every higher-order surface, and the
+// next-best-action ranking computed as a true counterfactual over it. Both
+// recompute whenever chapters change; invalidate alongside readiness/feasibility.
+
+final passProbabilityProvider = Provider<PassProbabilityResult>((ref) {
+  final user = ref.watch(authProvider).user;
+  final chapters = ref.watch(planProvider).chapters;
+  if (user?.targetExam != 'ca_final' || chapters.isEmpty) {
+    return PassProbabilityResult.empty;
+  }
+  return PassProbabilityEngine.assessCaFinal(chapters);
+});
+
+final decisionImpactProvider = Provider<List<ImpactAction>>((ref) {
+  final user = ref.watch(authProvider).user;
+  final chapters = ref.watch(planProvider).chapters;
+  if (user?.targetExam != 'ca_final' || chapters.isEmpty) return const [];
+  return DecisionImpactEngine.rank(chapters, limit: 5);
 });

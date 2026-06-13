@@ -123,6 +123,32 @@ class AuthNotifier extends Notifier<AuthState> {
     await _loadLocalUser(); // refresh state.user with the new streak values
   }
 
+  /// ROOT FIX for "CA Final shows JEE/Class-12 subjects until restart".
+  ///
+  /// The user record is created at login with the default targetExam
+  /// 'jee_main'. Previously the real exam was written to the DB only on the
+  /// FINAL onboarding screen (generating plan), so for the whole flow in
+  /// between, the DB still said 'jee_main' — and every chapter read (planner,
+  /// dashboard syllabus ring, plan tab) returned JEE subjects for a CA Final
+  /// student. A restart "fixed" it only because by then the DB had been
+  /// corrected. Committing the chosen exam here, the moment it's selected,
+  /// removes that stale window entirely.
+  ///
+  /// Idempotent and safe: no-op if not logged in yet (the generating screen
+  /// still persists everything), and only writes when the exam actually
+  /// changes.
+  Future<void> setTargetExamEarly(String targetExam) async {
+    final db = IsarService.db;
+    final user = state.user ?? await db.userSchemas.where().findFirst();
+    if (user == null) return; // generating screen will persist on completion
+    if (user.targetExam != targetExam) {
+      user.targetExam = targetExam;
+      if (targetExam != 'ca_final') user.caAttempt = null;
+      await db.writeTxn(() async => db.userSchemas.put(user));
+    }
+    state = state.copyWith(user: user);
+  }
+
   Future<void> signOut() async {
     state = const AuthState(isLoading: false);
   }

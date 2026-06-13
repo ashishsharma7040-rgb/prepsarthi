@@ -31,6 +31,8 @@ import '../../widgets/common/accessibility_widgets.dart';
 import '../../widgets/common/shared_widgets.dart';
 import '../../widgets/common/soothing_background.dart';               // ← NEW
 import 'dashboard_widgets.dart';
+import 'feasibility_card.dart';
+import 'decision_support_cards.dart';
 
 // ── Daily quote provider ───────────────────────────────────────────────────────
 final _dailyQuoteProvider = FutureProvider<Map<String, String>>((ref) async {
@@ -107,6 +109,9 @@ class DashboardScreen extends ConsumerWidget {
             ref.invalidate(studyLogProvider);
             ref.invalidate(dashboardSummaryProvider);
             ref.invalidate(readinessScoreProvider);
+            ref.invalidate(feasibilityProvider);
+            ref.invalidate(passProbabilityProvider);
+            ref.invalidate(decisionImpactProvider);
             ref.invalidate(backlogRecoveryProvider);
           },
           color: isDark ? DarkColors.primary : LightColors.primary,
@@ -204,6 +209,17 @@ class DashboardScreen extends ConsumerWidget {
                       ],
 
                       const SizedBox(height: 12),
+
+                      // ── Flagship: Pass Probability (CA Final) ──────────────
+                      PassProbabilityCard(isDark: isDark),
+
+                      // ── Flagship: Decision Impact "do this next" ───────────
+                      DecisionImpactCard(isDark: isDark),
+
+                      // ── Syllabus Feasibility (Part 4 / Planner v5) ────────
+                      FeasibilityCard(isDark: isDark)
+                          .animate()
+                          .fadeIn(delay: 58.ms),
 
                       // ── Today's Mission Banner ─────────────────────────────
                       TodayMissionBanner(
