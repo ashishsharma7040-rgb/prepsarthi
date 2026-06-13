@@ -96,9 +96,9 @@ class DashboardHeader extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          name.isEmpty
+                          name.trim().isEmpty
                               ? _greeting()
-                              : '${_greeting()}, $name 👋',
+                              : '${_greeting()}, ${name.trim().split(RegExp(r"\s+")).first} 👋',
                           style: theme.textTheme.headlineMedium,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

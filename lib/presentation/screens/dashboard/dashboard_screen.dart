@@ -112,6 +112,8 @@ class DashboardScreen extends ConsumerWidget {
             ref.invalidate(feasibilityProvider);
             ref.invalidate(passProbabilityProvider);
             ref.invalidate(decisionImpactProvider);
+            ref.invalidate(forecastReadinessProvider);
+            ref.invalidate(momentumProvider);
             ref.invalidate(backlogRecoveryProvider);
           },
           color: isDark ? DarkColors.primary : LightColors.primary,
@@ -210,24 +212,26 @@ class DashboardScreen extends ConsumerWidget {
 
                       const SizedBox(height: 12),
 
-                      // ── Flagship: Pass Probability (CA Final) ──────────────
-                      PassProbabilityCard(isDark: isDark),
-
-                      // ── Flagship: Decision Impact "do this next" ───────────
-                      DecisionImpactCard(isDark: isDark),
-
-                      // ── Syllabus Feasibility (Part 4 / Planner v5) ────────
+                      // ── HERO: Feasibility — "On Track / At Risk" leads, so
+                      // the first thing a student feels is "my goal is
+                      // achievable", not a scary 0%.
                       FeasibilityCard(isDark: isDark)
                           .animate()
-                          .fadeIn(delay: 58.ms),
+                          .fadeIn(delay: 40.ms),
 
-                      // ── Today's Mission Banner ─────────────────────────────
+                      // ── Today's Mission ────────────────────────────────────
                       TodayMissionBanner(
                         todayHours: todayHours,
                         targetHours: targetHours,
                         todayEntries: summary.todayEntries,
                         isDark: isDark,
-                      ).animate().fadeIn(delay: 70.ms).slideY(begin: 0.05),
+                      ).animate().fadeIn(delay: 55.ms).slideY(begin: 0.05),
+
+                      // ── Highest-Impact Action (decision support) ───────────
+                      DecisionImpactCard(isDark: isDark),
+
+                      // ── Momentum (last 14 days) ────────────────────────────
+                      MomentumCard(isDark: isDark),
 
                       const SizedBox(height: 16),
 
@@ -247,6 +251,11 @@ class DashboardScreen extends ConsumerWidget {
                       ).animate().fadeIn(delay: 90.ms).slideY(begin: 0.05),
 
                       const SizedBox(height: 20),
+
+                      // ── Pass Probability — placed AFTER readiness, and
+                      // staged: hidden behind a positive baseline checklist
+                      // until there's enough evidence to forecast honestly.
+                      PassProbabilityCard(isDark: isDark),
 
                       // ── Syllabus Progress ──────────────────────────────────
                       A11yHeading(

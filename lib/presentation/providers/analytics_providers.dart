@@ -15,6 +15,7 @@ import '../../domain/usecases/readiness_score.dart';
 import '../../domain/planner/feasibility_engine.dart';
 import '../../domain/planner/pass_probability_engine.dart';
 import '../../domain/planner/decision_impact_engine.dart';
+import '../../domain/planner/forecast_confidence_engine.dart';
 import 'all_providers.dart';
 
 // Re-export so existing widgets that import ReadinessScore from analytics_providers
@@ -26,6 +27,8 @@ export '../../domain/planner/pass_probability_engine.dart'
     show PassProbabilityResult, GroupProbability, PaperEstimate, ProbabilityReason;
 export '../../domain/planner/decision_impact_engine.dart'
     show ImpactAction, ActionType;
+export '../../domain/planner/forecast_confidence_engine.dart'
+    show ForecastReadiness, ForecastStage, UnlockCriterion;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PART 4 — SYLLABUS FEASIBILITY (Planner v5 Stage 1; PLAN-1/PLAN-2 signal)
@@ -454,4 +457,83 @@ final decisionImpactProvider = Provider<List<ImpactAction>>((ref) {
   final chapters = ref.watch(planProvider).chapters;
   if (user?.targetExam != 'ca_final' || chapters.isEmpty) return const [];
   return DecisionImpactEngine.rank(chapters, limit: 5);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PART 5 — Forecast readiness (staging + confidence) & Momentum
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Gates the pass-probability forecast behind real evidence and reports how
+/// much the student should trust it. The dashboard uses this to decide whether
+/// to show the "Preparation Baseline" checklist, an "early estimate", or the
+/// full forecast.
+final forecastReadinessProvider =
+    FutureProvider<ForecastReadiness>((ref) async {
+  final user = ref.watch(authProvider).user;
+  final chapters = ref.watch(planProvider).chapters;
+  if (user?.targetExam != 'ca_final' || chapters.isEmpty) {
+    return const ForecastReadiness(
+      stage: ForecastStage.baseline,
+      confidence: 0,
+      confidenceLabel: 'Low',
+      reasons: [],
+      criteria: [],
+    );
+  }
+  int sessions = 0;
+  try {
+    sessions = await StudyLogRepository.totalCount();
+  } catch (_) {}
+  return ForecastConfidenceEngine.assess(chapters, studySessionCount: sessions);
+});
+
+/// Last-14-day momentum: hours done vs target pace + chapters touched, for a
+/// motivating "you're moving" card. Honest — zero days count against pace.
+class MomentumSummary {
+  final double hours14d;
+  final double targetHours14d;
+  final int chaptersTouched;
+  final double pacePercent; // 100 = on pace, >100 ahead
+  final bool hasData;
+  const MomentumSummary({
+    required this.hours14d,
+    required this.targetHours14d,
+    required this.chaptersTouched,
+    required this.pacePercent,
+    required this.hasData,
+  });
+  static const empty = MomentumSummary(
+      hours14d: 0,
+      targetHours14d: 0,
+      chaptersTouched: 0,
+      pacePercent: 0,
+      hasData: false);
+}
+
+final momentumProvider = FutureProvider<MomentumSummary>((ref) async {
+  final user = ref.watch(authProvider).user;
+  ref.watch(planProvider); // refresh after study events
+  if (user == null) return MomentumSummary.empty;
+
+  try {
+    final cutoff = DateTime.now().subtract(const Duration(days: 14));
+    final logs = await StudyLogRepository.since(cutoff);
+    if (logs.isEmpty) return MomentumSummary.empty;
+    final hours = logs.fold<double>(0, (s, l) => s + l.hoursStudied);
+    final touched = logs
+        .map((l) => l.chapterKey.isNotEmpty ? l.chapterKey : l.chapterName)
+        .toSet()
+        .length;
+    final target = (user.dailyStudyHours) * 14.0;
+    final pace = target > 0 ? (hours / target * 100) : 0.0;
+    return MomentumSummary(
+      hours14d: hours,
+      targetHours14d: target,
+      chaptersTouched: touched,
+      pacePercent: pace,
+      hasData: true,
+    );
+  } catch (_) {
+    return MomentumSummary.empty;
+  }
 });

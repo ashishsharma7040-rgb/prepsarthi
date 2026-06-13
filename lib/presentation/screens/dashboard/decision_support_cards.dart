@@ -30,7 +30,23 @@ class PassProbabilityCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final r = ref.watch(passProbabilityProvider);
     if (!r.hasData) return const SizedBox.shrink();
+    final readinessAsync = ref.watch(forecastReadinessProvider);
+    // Until staging resolves, show nothing rather than risk flashing a raw 0%.
+    if (readinessAsync.isLoading && !readinessAsync.hasValue) {
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
+
+    // PART 5 — staging. Until enough evidence exists we do NOT show a point
+    // estimate (0% would be demotivating AND statistically false). Show a
+    // positive "Preparation Baseline" with an unlock checklist instead.
+    final readiness = readinessAsync.asData?.value;
+    if (readiness != null && !readiness.showForecast) {
+      return _baselineCard(theme, readiness);
+    }
+    final isEarly = readiness?.isEarly ?? false;
+    final confLabel = readiness?.confidenceLabel ?? 'Medium';
+    final conf = readiness?.confidence ?? 0.4;
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -56,27 +72,35 @@ class PassProbabilityCard extends ConsumerWidget {
               Icon(Icons.workspace_premium_rounded,
                   color: _probColor(r.bothGroupsProbability), size: 20),
               const SizedBox(width: 8),
-              Text('Pass Probability',
+              Text(isEarly ? 'Pass Probability — early' : 'Pass Probability',
                   style: theme.textTheme.titleSmall
                       ?.copyWith(fontWeight: FontWeight.w700)),
               const Spacer(),
-              Text('estimate',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: theme.hintColor)),
+              _confidencePill(theme, confLabel, conf),
             ],
           ),
+          if (isEarly) ...[
+            const SizedBox(height: 4),
+            Text('Early estimate — sharpens as you study and take mocks.',
+                style: theme.textTheme.labelSmall
+                    ?.copyWith(color: theme.hintColor)),
+          ],
           const SizedBox(height: 14),
-          Row(
-            children: [
-              for (final g in r.groups) ...[
-                Expanded(child: _probPill(theme, g.label, g.passProbability)),
-                const SizedBox(width: 10),
+          Opacity(
+            opacity: isEarly ? 0.82 : 1.0,
+            child: Row(
+              children: [
+                for (final g in r.groups) ...[
+                  Expanded(
+                      child: _probPill(theme, g.label, g.passProbability)),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: _probPill(theme, 'Both', r.bothGroupsProbability,
+                      emphasise: true),
+                ),
               ],
-              Expanded(
-                child: _probPill(theme, 'Both', r.bothGroupsProbability,
-                    emphasise: true),
-              ),
-            ],
+            ),
           ),
           if (r.reasons.isNotEmpty) ...[
             const SizedBox(height: 14),
@@ -108,6 +132,88 @@ class PassProbabilityCard extends ConsumerWidget {
     ).animate().fadeIn(delay: 60.ms).slideY(begin: 0.05);
   }
 
+  // Baseline: positive framing + unlock checklist. No scary 0%.
+  Widget _baselineCard(ThemeData theme, ForecastReadiness readiness) {
+    final accent = theme.colorScheme.primary;
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161B2B) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withOpacity(0.3), width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('🎯', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Text('Preparation Baseline',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Your pass-probability forecast unlocks once there\'s enough to '
+            'predict from. Knock these out and it goes live:',
+            style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          ...readiness.criteria.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      c.met
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 18,
+                      color: c.met ? Colors.green : theme.hintColor,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child:
+                            Text(c.label, style: theme.textTheme.bodyMedium)),
+                    Text('${c.current}/${c.target}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: c.met ? Colors.green : theme.hintColor)),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    ).animate().fadeIn(delay: 60.ms).slideY(begin: 0.05);
+  }
+
+  Widget _confidencePill(ThemeData theme, String label, double conf) {
+    final c = conf >= 0.55
+        ? Colors.green
+        : conf >= 0.18
+            ? Colors.amber.shade800
+            : theme.hintColor;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.insights_rounded, size: 12, color: c),
+          const SizedBox(width: 4),
+          Text('$label confidence',
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: c, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
   Widget _probPill(ThemeData theme, String label, double p,
       {bool emphasise = false}) {
     final c = _probColor(p);
@@ -133,6 +239,100 @@ class PassProbabilityCard extends ConsumerWidget {
                   ?.copyWith(fontWeight: FontWeight.w600)),
         ],
       ),
+    );
+  }
+}
+
+// ───────────────────────── Momentum ─────────────────────────────────────────
+class MomentumCard extends ConsumerWidget {
+  final bool isDark;
+  const MomentumCard({super.key, required this.isDark});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final m = ref.watch(momentumProvider).asData?.value;
+    if (m == null || !m.hasData) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final ahead = m.pacePercent >= 100;
+    final color = ahead ? Colors.green : Colors.amber.shade800;
+    final paceText = ahead
+        ? 'Ahead of pace by ${(m.pacePercent - 100).round()}%'
+        : '${(100 - m.pacePercent).round()}% behind target pace';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161B2B) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: theme.colorScheme.outline.withOpacity(0.4), width: 0.6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('📈', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Text('Momentum — last 14 days',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                  child: _stat(theme, '${m.hours14d.round()}h', 'studied')),
+              Expanded(
+                  child: _stat(
+                      theme, '${m.chaptersTouched}', 'chapters worked')),
+              Expanded(
+                  child: _stat(theme, '${m.pacePercent.round()}%', 'of target',
+                      color: color)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                    ahead
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_flat_rounded,
+                    size: 16,
+                    color: color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(paceText,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                          color: color, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 70.ms);
+  }
+
+  Widget _stat(ThemeData theme, String value, String label, {Color? color}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value,
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w800, color: color)),
+        Text(label,
+            style:
+                theme.textTheme.labelSmall?.copyWith(color: theme.hintColor)),
+      ],
     );
   }
 }

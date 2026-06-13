@@ -694,6 +694,16 @@ class _PaperCard extends StatelessWidget {
     required this.onMarkPracticed,
   });
 
+  // Title without the duplicated year. `session` already embeds the year for
+  // CA Final (e.g. "May 2026"), so appending paper.year produced "May 2026
+  // 2026". Only append the year when the session doesn't already contain it.
+  String _paperTitle(PYQPaper paper) {
+    final yr = paper.year.toString();
+    if (paper.session.isEmpty) return '${paper.exam} $yr';
+    if (paper.session.contains(yr)) return '${paper.exam} – ${paper.session}';
+    return '${paper.exam} – ${paper.session} $yr';
+  }
+
   (String, Color) _examInfo() {
     switch (paper.exam) {
       case 'JEE Main':
@@ -785,45 +795,52 @@ class _PaperCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${paper.exam}${paper.session.isEmpty ? '' : ' – ${paper.session}'} ${paper.year}',
+                  _paperTitle(paper),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               if (hasUrl)
-                Icon(Icons.picture_as_pdf_rounded,
-                    size: 14, color: examColor.withOpacity(0.6)),
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Icon(Icons.picture_as_pdf_rounded,
+                      size: 14, color: examColor.withOpacity(0.6)),
+                ),
             ],
           ),
-          subtitle: Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: examColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '${paper.questionCount} Qs',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: examColor),
-                ),
-              ),
-              if (hasUrl) ...[
-                const SizedBox(width: 6),
-                Text('Tap to open PDF',
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: examColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${paper.questionCount} Qs',
                     style: theme.textTheme.labelSmall
-                        ?.copyWith(color: examColor.withOpacity(0.7))),
+                        ?.copyWith(color: examColor),
+                  ),
+                ),
+                if (hasUrl)
+                  Text('Tap to open PDF',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: examColor.withOpacity(0.7))),
+                if (paper.isPracticed)
+                  Text('✅ Practiced',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: LightColors.learned)),
               ],
-              if (paper.isPracticed) ...[
-                const SizedBox(width: 8),
-                Text('✅ Practiced',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: LightColors.learned)),
-              ],
-            ],
+            ),
           ),
           trailing: paper.isPracticed
               ? const Icon(Icons.check_circle_rounded,
