@@ -10,6 +10,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import '../../data/local/isar/isar_service.dart';
+import '../../data/repositories/study_log_repository.dart';
 // ✅ Delegate to single engine — no formula duplication
 import '../../domain/usecases/readiness_score.dart';
 import '../../domain/planner/feasibility_engine.dart';
