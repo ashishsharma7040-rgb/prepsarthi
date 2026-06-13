@@ -103,7 +103,7 @@ class DecisionImpactEngine {
       if (delta <= 0.02) continue; // ignore negligible moves
 
       actions.add(ImpactAction(
-        type: candidate.$1.type,
+        type: _effectToType(candidate.$1),
         chapterKey: c.chapterKey,
         chapterName: c.name,
         subjectName: c.subjectName,

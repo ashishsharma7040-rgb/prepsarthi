@@ -9,8 +9,6 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
-import '../../data/local/isar/schemas/chapter_schema.dart';
-import '../../data/local/isar/schemas/readiness_snapshot_schema.dart';
 import '../../data/local/isar/isar_service.dart';
 // ✅ Delegate to single engine — no formula duplication
 import '../../domain/usecases/readiness_score.dart';

@@ -168,9 +168,7 @@ class _CaInsightsScreenState extends ConsumerState<CaInsightsScreen> {
     final chapters = ref.read(planProvider).chapters;
     if (user == null || chapters.isEmpty) return '';
 
-    final daysLeft = user.examDate != null
-        ? user.examDate!.difference(DateTime.now()).inDays
-        : null;
+    final daysLeft = user.examDate?.difference(DateTime.now()).inDays;
 
     // Per-paper (subject) progress 0–100.
     final byPaper = <String, List<double>>{};
