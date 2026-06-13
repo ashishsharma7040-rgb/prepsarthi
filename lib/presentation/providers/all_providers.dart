@@ -146,7 +146,19 @@ class AuthNotifier extends Notifier<AuthState> {
       if (targetExam != 'ca_final') user.caAttempt = null;
       await db.writeTxn(() async => db.userSchemas.put(user));
     }
-    state = state.copyWith(user: user);
+    // IMPORTANT — do NOT reassign `state` here.
+    //
+    // routerProvider does `ref.watch(authProvider)` and rebuilds the entire
+    // GoRouter whenever auth STATE changes. Emitting a new AuthState mid-
+    // onboarding recreated the router, which disposed the target-selector
+    // screen before its `context.go(...)` could fire (context.mounted → false)
+    // and bounced the user back — the "pick a stream → page resets → loop"
+    // bug. We only need the exam PERSISTED so planProvider._load (which reads
+    // targetExam from the DB, not from auth state) resolves the right syllabus.
+    // `user` above is the same object held in state.user, so it's already
+    // mutated in place — state stays consistent without a router rebuild.
+    // The generating screen's updateOnboarding() does the proper state emit
+    // at the END of onboarding, when redirecting to the dashboard is correct.
   }
 
   Future<void> signOut() async {
